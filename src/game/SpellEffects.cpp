@@ -4111,16 +4111,20 @@ void Spell::EffectTriggerSpell(SpellEffectIndex effIndex)
         case 35729:
         {
             Unit::SpellAuraHolderMap& Auras = unitTarget->GetSpellAuraHolderMap();
-            for(Unit::SpellAuraHolderMap::iterator iter = Auras.begin(); iter != Auras.end(); ++iter)
+            for(Unit::SpellAuraHolderMap::iterator iter = Auras.begin(); iter != Auras.end();)
             {
+                SpellAuraHolderPtr holder = iter->second;
+                ++iter;
+                if (!holder || holder->IsDeleted())
+                    continue;
+
                 // Remove all harmful spells on you except positive/passive/physical auras
-                if (!iter->second->IsPositive() &&
-                    !iter->second->IsPassive() &&
-                    !iter->second->IsDeathPersistent() &&
-                    (GetSpellSchoolMask(iter->second->GetSpellProto()) & SPELL_SCHOOL_MASK_NORMAL) == 0)
+                if (!holder->IsPositive() &&
+                    !holder->IsPassive() &&
+                    !holder->IsDeathPersistent() &&
+                    (GetSpellSchoolMask(holder->GetSpellProto()) & SPELL_SCHOOL_MASK_NORMAL) == 0)
                 {
-                    m_caster->RemoveAurasDueToSpell(iter->second->GetSpellProto()->Id);
-                    iter = Auras.begin();
+                    m_caster->RemoveAurasDueToSpell(holder->GetId());
                 }
             }
             return;
