@@ -3073,26 +3073,28 @@ Unit* Pet::GetOwner() const
 
 bool Pet::ReapplyScalingAura(SpellAuraHolderPtr holder, SpellEntry const *spellproto, SpellEffectIndex index, int32 basePoints)
 {
-    if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->IsInUse())
+    if (!holder || holder->IsDeleted() || holder->IsInUse())
         return false;
 
     holder->SetInUse(true);
 
-    Aura* oldaura = holder->GetAuraByEffectIndex(index);
+    Aura* aura = holder->GetAuraByEffectIndex(index);
 
-    if (oldaura)
+    if (aura)
     {
-//    RemoveSingleAuraFromSpellAuraHolder(holder, index, AURA_REMOVE_BY_STACK);
-        RemoveAura(oldaura, AURA_REMOVE_BY_STACK);
+        MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
+        aura->ApplyModifier(false,true);
+        aura->GetModifier()->m_amount = basePoints;
+        aura->ApplyModifier(true,true);
     }
-
-    Aura* aura = holder->CreateAura(spellproto, index, &basePoints, holder, this, this, NULL);
-    holder->SetAuraDuration(aura->GetAuraMaxDuration());
-    AddAuraToModList(aura);
-    aura->ApplyModifier(true,true);
-
+    else
+    {
+        aura = holder->CreateAura(spellproto, index, &basePoints, holder, this, this, NULL);
+        holder->SetAuraDuration(aura->GetAuraMaxDuration());
+        AddAuraToModList(aura);
+        aura->ApplyModifier(true,true);
+    }
     holder->SetInUse(false);
-
     return true;
 }
 
