@@ -5696,10 +5696,9 @@ void Aura::HandleAuraModSchoolImmunity(bool apply, bool Real)
             {
                 toRemoveSpellList.insert(holder->GetId());
             }
-
-            for (std::set<uint32>::iterator i = toRemoveSpellList.begin(); i != toRemoveSpellList.end(); ++i)
-                target->RemoveAurasDueToSpell(*i);
         }
+        for (std::set<uint32>::iterator i = toRemoveSpellList.begin(); i != toRemoveSpellList.end(); ++i)
+            target->RemoveAurasDueToSpell(*i);
     }
 
     if ( Real && GetSpellProto()->Mechanic == MECHANIC_BANISH )
