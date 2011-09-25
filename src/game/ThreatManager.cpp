@@ -228,7 +228,14 @@ HostileReference* ThreatContainer::getReferenceByTarget(Unit* pVictim)
     ObjectGuid guid = pVictim->GetObjectGuid();
     for(ThreatList::const_iterator i = iThreatList.begin(); i != iThreatList.end(); ++i)
     {
-        if ((*i) && (*i)->getUnitGuid() == guid)
+        if (!(*i))
+            continue;
+
+        ObjectGuid t_guid = (*i)->getUnitGuid();
+        if (!t_guid)
+            continue;
+
+        if (t_guid == guid)
         {
             result = (*i);
             break;
