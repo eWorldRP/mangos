@@ -1,0 +1,2 @@
+-- Role Realms
+ALTER TABLE `account` ADD COLUMN `rolerealms` TINYINT(3) UNSIGNED NOT NULL DEFAULT '0';

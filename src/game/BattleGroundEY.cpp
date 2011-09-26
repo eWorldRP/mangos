@@ -42,6 +42,8 @@ BattleGroundEY::BattleGroundEY()
     m_StartMessageIds[BG_STARTING_EVENT_SECOND] = LANG_BG_EY_START_ONE_MINUTE;
     m_StartMessageIds[BG_STARTING_EVENT_THIRD]  = LANG_BG_EY_START_HALF_MINUTE;
     m_StartMessageIds[BG_STARTING_EVENT_FOURTH] = LANG_BG_EY_HAS_BEGUN;
+
+    m_IllegalPositionTimer = ILLEGAL_POSITION_TIMER;
 }
 
 BattleGroundEY::~BattleGroundEY()
@@ -91,6 +93,75 @@ void BattleGroundEY::Update(uint32 diff)
             UpdatePointStatuses();
             m_TowerCapCheckTimer = BG_EY_FPOINTS_TICK_TIME;
         }
+		
+        // areatrigger for Fel Reaver was removed? so:
+        if (m_FlagState)
+            if(Player* plr = sObjectMgr.GetPlayer(GetFlagPickerGuid()))
+                if(plr->GetDistance2d(2043.99f, 1729.91f) < 3.0f)
+                    if(m_PointState[BG_EY_NODE_FEL_REAVER] == EY_POINT_UNDER_CONTROL && m_PointOwnedByTeam[BG_EY_NODE_FEL_REAVER] == plr->GetTeam())
+                        EventPlayerCapturedFlag(plr, BG_EY_NODE_FEL_REAVER);
+    }
+    else if (GetStatus() == STATUS_WAIT_JOIN)
+    {
+        if (m_IllegalPositionTimer <= 0)
+        {
+            for(BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+            {
+                Player *plr = sObjectMgr.GetPlayer(itr->first);
+                if (!plr)
+                    continue;
+
+                if (plr->GetPositionZ() < MINIMUM_HEIGHT_AT_START)
+                {
+                    switch(plr->GetTeam())
+                    {
+                        case ALLIANCE:
+                            plr->TeleportTo(GetMapId(), BG_EY_TeleportingLocs[0][0], BG_EY_TeleportingLocs[0][1], BG_EY_TeleportingLocs[0][2], BG_EY_TeleportingLocs[0][3]);
+                            break;
+                        case HORDE:
+                            plr->TeleportTo(GetMapId(), BG_EY_TeleportingLocs[1][0], BG_EY_TeleportingLocs[1][1], BG_EY_TeleportingLocs[1][2], BG_EY_TeleportingLocs[1][3]);
+                            break;
+                        default:
+                            sLog.outError("BattleGroundEY: Unexpected team for player %s (cheater?)", plr->GetName());
+                            break;
+                    }
+                }
+            }
+            m_IllegalPositionTimer = ILLEGAL_POSITION_TIMER;
+        }
+        else
+            m_IllegalPositionTimer -= diff;
+    }
+    else if (GetStatus() == STATUS_WAIT_JOIN)
+    {
+        if (m_IllegalPositionTimer <= 0)
+        {
+            for(BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+            {
+                Player *plr = sObjectMgr.GetPlayer(itr->first);
+                if (!plr)
+                    continue;
+
+                if (plr->GetPositionZ() < MINIMUM_HEIGHT_AT_START)
+                {
+                    switch(plr->GetTeam())
+                    {
+                        case ALLIANCE:
+                            plr->TeleportTo(GetMapId(), BG_EY_TeleportingLocs[0][0], BG_EY_TeleportingLocs[0][1], BG_EY_TeleportingLocs[0][2], BG_EY_TeleportingLocs[0][3]);
+                            break;
+                        case HORDE:
+                            plr->TeleportTo(GetMapId(), BG_EY_TeleportingLocs[1][0], BG_EY_TeleportingLocs[1][1], BG_EY_TeleportingLocs[1][2], BG_EY_TeleportingLocs[1][3]);
+                            break;
+                        default:
+                            sLog.outError("BattleGroundEY: Unexpected team for player %s (cheater?)", plr->GetName());
+                            break;
+                    }
+                }
+            }
+            m_IllegalPositionTimer = ILLEGAL_POSITION_TIMER;
+        }
+        else
+            m_IllegalPositionTimer -= diff;
     }
 }
 
@@ -271,6 +342,10 @@ void BattleGroundEY::EndBattleGround(Team winner)
     RewardHonorToTeam(GetBonusHonorFromKill(1), ALLIANCE);
     RewardHonorToTeam(GetBonusHonorFromKill(1), HORDE);
 
+    RewardXpToTeam(0, 0.8f, winner);
+    RewardXpToTeam(0, 0.8f, ALLIANCE);
+    RewardXpToTeam(0, 0.8f, HORDE);
+
     BattleGround::EndBattleGround(winner);
 }
 
@@ -424,8 +499,13 @@ void BattleGroundEY::Reset()
     m_DroppedFlagGuid.Clear();
     m_PointAddingTimer = 0;
     m_TowerCapCheckTimer = 0;
+// patch reward Call to Arms
+/*
     bool isBGWeekend = BattleGroundMgr::IsBGWeekend(GetTypeID());
     m_HonorTics = (isBGWeekend) ? BG_EY_EYWeekendHonorTicks : BG_EY_NotEYWeekendHonorTicks;
+*/
+    m_HonorTics = BG_EY_NotEYWeekendHonorTicks;
+//
 
     for(uint8 i = 0; i < BG_EY_NODES_MAX; ++i)
     {
@@ -475,6 +555,9 @@ void BattleGroundEY::HandleKillPlayer(Player *player, Player *killer)
 {
     if (GetStatus() != STATUS_IN_PROGRESS)
         return;
+
+    if (killer->GetAreaId() == player->GetAreaId()) 
+        killer->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA);
 
     BattleGround::HandleKillPlayer(player, killer);
     EventPlayerDroppedFlag(player);
@@ -642,6 +725,8 @@ void BattleGroundEY::EventPlayerCapturedFlag(Player *Source, BG_EY_Nodes node)
 
     if (m_TeamPointsCount[team_id] > 0)
         AddPoints(Source->GetTeam(), BG_EY_FlagPoints[m_TeamPointsCount[team_id] - 1]);
+
+    RewardXpToTeam(0, 0.6f, Source->GetTeam());
 
     UpdatePlayerScore(Source, SCORE_FLAG_CAPTURES, 1);
 }

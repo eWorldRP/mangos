@@ -84,7 +84,10 @@ ArenaTeam::ArenaTeam()
     if (conf_value < 0)                                     // -1 = select by season id
     {
         if (sWorld.getConfig(CONFIG_UINT32_ARENA_SEASON_ID) >= 6)
-            m_stats.rating    = 0;
+// patch arena start rating
+//          m_stats.rating    = 0;
+            m_stats.rating    = 1;
+//
         else
             m_stats.rating    = 1500;
     }
@@ -110,6 +113,10 @@ bool ArenaTeam::Create(ObjectGuid captainGuid, ArenaType type, std::string arena
         return false;
 
     DEBUG_LOG("GUILD: creating arena team %s to leader: %s", arenaTeamName.c_str(), captainGuid.GetString().c_str());
+    
+// patch Arena log
+    sLog.outArena("[%uvs%u] creato team: %s", type, type, arenaTeamName.c_str());
+//
 
     m_CaptainGuid = captainGuid;
     m_Name = arenaTeamName;
@@ -266,6 +273,9 @@ bool ArenaTeam::AddMember(ObjectGuid playerGuid)
         if (m_CaptainGuid != playerGuid)
             pl->SetArenaTeamInfoField(GetSlot(), ARENA_TEAM_MEMBER, 1);
     }
+// patch arena log
+    sLog.outArena("[%uvs%u] team %s: aggiunto giocatore %s", GetType(), GetType(), GetName().c_str(), plName.c_str());
+//
     return true;
 }
 
@@ -449,6 +459,16 @@ void ArenaTeam::DelMember(ObjectGuid guid)
     }
 
     CharacterDatabase.PExecute("DELETE FROM arena_team_member WHERE arenateamid = '%u' AND guid = '%u'", GetId(), guid.GetCounter());
+
+// patch arena log
+    QueryResult *result = CharacterDatabase.PQuery("SELECT name, class FROM characters WHERE guid='%u'", guid.GetCounter());
+    if(!result)
+        return;
+    
+    std::string plName = (*result)[0].GetCppString();
+    delete result;
+    sLog.outArena("[%uvs%u] team %s: rimosso giocatore %s", GetType(), GetType(), GetName().c_str(), plName.c_str());
+// 
 }
 
 void ArenaTeam::Disband(WorldSession *session)
@@ -472,6 +492,9 @@ void ArenaTeam::Disband(WorldSession *session)
     CharacterDatabase.PExecute("DELETE FROM arena_team_stats WHERE arenateamid = '%u'", m_TeamId);
     CharacterDatabase.CommitTransaction();
     sObjectMgr.RemoveArenaTeam(m_TeamId);
+// patch arena log
+    sLog.outArena("[%uvs%u] team %s distrutto", GetType(), GetType(), GetName().c_str());
+// 
 }
 
 void ArenaTeam::Roster(WorldSession *session)

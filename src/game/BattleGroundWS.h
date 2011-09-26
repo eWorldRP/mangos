@@ -74,6 +74,12 @@ enum BG_WS_FlagState
     BG_WS_FLAG_STATE_ON_GROUND    = 3
 };
 
+enum BG_WS_Objectives
+{
+    WS_OBJECTIVE_CAPTURE_FLAG   = 42,
+    WS_OBJECTIVE_RETURN_FLAG    = 44
+};
+
 enum BG_WS_Graveyards
 {
     WS_GRAVEYARD_FLAGROOM_ALLIANCE = 769,
@@ -167,7 +173,6 @@ class BattleGroundWS : public BattleGround
         uint32 m_HonorWinKills;
         uint32 m_HonorEndKills;
         uint32 m_EndTimer;
-
         Team   m_LastCapturedFlagTeam;
         Team   m_FirstCapturedFlagTeam;
 

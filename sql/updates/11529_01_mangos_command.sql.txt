@@ -1,0 +1,1 @@
+ALTER TABLE db_version CHANGE COLUMN required_11523_02_mangos_mangos_string required_11529_01_mangos_command bit;

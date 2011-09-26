@@ -1318,6 +1318,16 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     }
                     return SPELL_AURA_PROC_FAILED;
                 }
+// patch arcane blast procs
+                // Arcane Blast proc-off only from arcane school and not from self
+                case 36032:
+                {
+                    if(procSpell->EffectTriggerSpell[1] == 36032 || GetSpellSchoolMask(procSpell) != SPELL_SCHOOL_MASK_ARCANE)
+                        return SPELL_AURA_PROC_FAILED;
+
+                    return SPELL_AURA_PROC_OK;
+                }
+//
                 // Glyph of Ice Block
                 case 56372:
                 {
@@ -2098,7 +2108,11 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
             {
                 if (!procSpell)
                     return SPELL_AURA_PROC_FAILED;
-
+// patch quick recovery proc              
+                //do not proc from spells that do not need combo points
+                if(!NeedsComboPoints(procSpell))
+                    return SPELL_AURA_PROC_FAILED;
+//
                 // energy cost save
                 basepoints[0] = procSpell->manaCost * triggerAmount/100;
                 if (basepoints[0] <= 0)
@@ -2401,6 +2415,10 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                 // Light's Beacon (heal target area aura)
                 case 53651:
                 {
+//patch no beacon su JoL
+                    if (procSpell && procSpell->Id == 20267)
+                        return SPELL_AURA_PROC_FAILED;
+//
                     // not do bonus heal for explicit beacon focus healing
                     if (GetObjectGuid() == triggeredByAura->GetCasterGuid())
                         return SPELL_AURA_PROC_FAILED;
@@ -2433,7 +2451,13 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     basepoints[0] = triggeredByAura->GetModifier()->m_amount*damage/100;
 
                     // cast with original caster set but beacon to beacon for apply caster mods and avoid LoS check
+//patch LoS check beacon
+                    /*
+                    // cast with original caster set but beacon to beacon for apply caster mods and avoid LoS check
                     beacon->CastCustomSpell(beacon,triggered_spell_id,&basepoints[0],NULL,NULL,true,castItem,triggeredByAura,pVictim->GetObjectGuid());
+                    */
+                    pVictim->CastCustomSpell(beacon,triggered_spell_id,&basepoints[0],NULL,NULL,true,castItem,triggeredByAura);
+//
                     return SPELL_AURA_PROC_OK;
                 }
                 // Seal of Corruption (damage calc on apply aura)
@@ -3326,6 +3350,15 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                 target = this;
                 break;
             }
+// patch guard dog
+            // Guard Dog
+            if (dummySpell->SpellIconID == 201 && procSpell->SpellIconID == 201)
+            {
+                triggered_spell_id = 54445;
+                target = this;
+                break;
+            }
+//
             // Silverback
             if (dummySpell->SpellIconID == 1582 && procSpell->SpellIconID == 201)
             {
@@ -3786,6 +3819,14 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 if(GetShapeshiftForm() != FORM_SHADOW)
                     return SPELL_AURA_PROC_FAILED;
             }
+//patch Improved Spirit Tap + Mind Flay
+            else if (auraSpellInfo->SpellIconID == 152 && 
+                    procSpell && procSpell->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_MIND_FLAY1>()
+                    && urand(0,1)) 
+            {
+                    return SPELL_AURA_PROC_FAILED;
+            }
+//
             break;
         }
         case SPELLFAMILY_DRUID:
@@ -3805,6 +3846,29 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                         return SPELL_AURA_PROC_FAILED;
                 }
             }
+// patch barkskin
+            // Barkskin
+            else if(auraSpellInfo->Id == 22812)
+            {
+                Unit::AuraList const& auras = GetAurasByType(SPELL_AURA_ADD_FLAT_MODIFIER);
+                for (Unit::AuraList::const_iterator i = auras.begin(); i != auras.end(); i++)
+                {
+                    switch((*i)->GetId())
+                    {
+                        case 16836: // Brambles - do not proc Barkskin's daze without this talent
+                        case 16839:
+                        case 16840:
+                        {
+                            if (!roll_chance_i((*i)->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_2)))
+                                return SPELL_AURA_PROC_FAILED;
+                            break;
+                        }
+                        default:
+                            return SPELL_AURA_PROC_FAILED;
+                    }
+                }
+            }
+//
             // Druid T9 Feral Relic (Lacerate, Swipe, Mangle, and Shred)
             else if (auraSpellInfo->Id==67353)
             {
@@ -4151,6 +4215,30 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 basepoints[0] = triggerAmount * damage / 100;
                 trigger_spell_id = 50475;
             }
+// patch bloodworms
+            // Bloodworms
+            else if (auraSpellInfo->Id == 49543)
+            {
+                if (GetTypeId() != TYPEID_PLAYER)
+                    return SPELL_AURA_PROC_FAILED;
+
+                // HACK: Remove cooldown of proc spell, for some reason it has a 300s cd
+                ((Player*)this)->RemoveSpellCooldown(trigger_spell_id);
+
+                // HACK: Random basepoints. Probably the basepoints of
+                // SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE have to be randomized on every proc
+                basepoints[0] = urand(2, 4);
+                break;
+            }
+//
+//patch Killing Machine
+            else if (auraSpellInfo->SpellIconID == 2702)
+            {
+                Spell* spell = GetCurrentSpell(CURRENT_GENERIC_SPELL);
+                if (spell && spell->IsTriggeredSpellWithRedundentData())
+                    return SPELL_AURA_PROC_FAILED;
+            }
+//
             break;
         }
         default:
@@ -4192,9 +4280,28 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
         }
         // Finishing moves that add combo points
         case 14189: // Seal Fate (Netherblade set)
+//patch Seal Fate + Mutilate
+        {
+            // Need add combopoint AFTER finishing move (or they get dropped in finish phase)
+            if (Spell* spell = GetCurrentSpell(CURRENT_GENERIC_SPELL))
+            {
+                if (!spell->CheckAlreadyTriggeredSpell(trigger_spell_id))
+                    spell->AddTriggeredSpell(trigger_spell_id);
+                else
+                    return SPELL_AURA_PROC_FAILED;
+                return SPELL_AURA_PROC_OK;
+            }
+            return SPELL_AURA_PROC_FAILED;
+        }
+//
         case 14157: // Ruthlessness
         case 70802: // Mayhem (Shadowblade sets)
         {
+// patch Mayhem + Mutilate
+            // add cooldown to prevent Seal Fate to proc from Mutilate with both hands
+            if (trigger_spell_id == 14189 && (procSpell->SpellFamilyFlags & UI64LIT(0x600000000)))
+                cooldown = time(NULL) + 1;
+//
             // Need add combopoint AFTER finishing move (or they get dropped in finish phase)
             if (Spell* spell = GetCurrentSpell(CURRENT_GENERIC_SPELL))
             {

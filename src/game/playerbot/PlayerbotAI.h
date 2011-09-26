@@ -5,6 +5,7 @@
 #include "../QuestDef.h"
 #include "../GameEventMgr.h"
 #include "../ObjectGuid.h"
+#include "../Unit.h"
 
 class WorldPacket;
 class WorldObject;
@@ -118,7 +119,8 @@ public:
         BOTSTATE_COMBAT,            // bot is in combat
         BOTSTATE_DEAD,              // we are dead and wait for becoming ghost
         BOTSTATE_DEADRELEASED,      // we released as ghost and wait to revive
-        BOTSTATE_LOOTING            // looting mode, used just after combat
+        BOTSTATE_LOOTING,           // looting mode, used just after combat
+        BOTSTATE_FLYING             // bot is flying
     };
 
     enum CollectionFlags
@@ -139,10 +141,36 @@ public:
         MOVEMENT_STAY               = 0x02
     };
 
+    enum TaskFlags
+    {
+        NONE                        = 0x00,
+        SELL                        = 0x01,  // sell items
+        REPAIR                      = 0x02,  // repair items
+        ADD                         = 0x04,  // add auction/quest
+        REMOVE                      = 0x08,  // remove auction
+        RESET                       = 0x10,  // reset all talents
+        WITHDRAW                    = 0x11,  // withdraw item from bank
+        DEPOSIT                     = 0x12,  // deposit item in bank
+        LIST                        = 0x14,  // list quests
+        END                         = 0x18   // turn in quests
+    };
+
+    enum AnnounceFlags
+    {
+        NOTHING                     = 0x00,
+        INVENTORY_FULL              = 0x01,
+        CANT_AFFORD                 = 0x02
+    };
+
+    typedef std::pair<enum TaskFlags, uint32> taskPair;
+    typedef std::list<taskPair> BotTaskList;
+    typedef std::list<enum NPCFlags> BotNPCList;
     typedef std::map<uint32, uint32> BotNeedItem;
-    typedef std::list<ObjectGuid> BotLootCreature;
+    typedef std::pair<uint32,uint32>talentPair;
+    typedef std::list<ObjectGuid> BotLootTarget;
     typedef std::list<uint32> BotLootEntry;
     typedef std::list<uint32> BotSpellList;
+    typedef std::vector<uint32> BotTaxiNode;
 
     // attacker query used in PlayerbotAI::FindAttacker()
     enum ATTACKERINFOTYPE
@@ -191,7 +219,8 @@ public:
     ScenarioType GetScenarioType() { return m_ScenarioType; }
 
     PlayerbotClassAI* GetClassAI() { return m_classAI; }
-    PlayerbotMgr* const GetManager() { return m_mgr; }
+    PlayerbotMgr* GetManager() { return m_mgr; }
+    void ReloadAI();
 
     // finds spell ID for matching substring args
     // in priority of full text match, spells not taking reagents, and highest rank
@@ -200,6 +229,15 @@ public:
     // Initialize spell using rank 1 spell id
     uint32 initSpell(uint32 spellId);
     uint32 initPetSpell(uint32 spellIconId);
+
+    // extract quest ids from links
+    void extractQuestIds(const std::string& text, std::list<uint32>& questIds) const;
+
+    // extract auction ids from links
+    void extractAuctionIds(const std::string& text, std::list<uint32>& auctionIds) const;
+
+    // extracts talent ids to list
+    void extractTalentIds(const std::string& text, std::list<talentPair>& talentIds) const;
 
     // extracts item ids from links
     void extractItemIds(const std::string& text, std::list<uint32>& itemIds) const;
@@ -214,7 +252,7 @@ public:
     uint32 extractMoney(const std::string& text) const;
 
     // extracts gameobject info from link
-    void extractGOinfo(const std::string& text, std::list<ObjectGuid>& m_lootTargets) const;
+    void extractGOinfo(const std::string& text, BotLootTarget& m_lootTargets) const;
 
     // finds items in bots equipment and adds them to foundItemList, removes found items from itemIdSearchList
     void findItemsInEquip(std::list<uint32>& itemIdSearchList, std::list<Item*>& foundItemList) const;
@@ -222,6 +260,8 @@ public:
     void findItemsInInv(std::list<uint32>& itemIdSearchList, std::list<Item*>& foundItemList) const;
     // finds nearby game objects that are specified in m_collectObjects then adds them to the m_lootTargets list
     void findNearbyGO();
+    // finds nearby creatures, whose UNIT_NPC_FLAGS match the flags specified in item list m_itemIds
+    void findNearbyCreature();
 
     void MakeSpellLink(const SpellEntry *sInfo, std::ostringstream &out, Player* player = NULL);
 
@@ -260,6 +300,7 @@ public:
     Item* FindPoison() const;
     Item* FindMount(uint32 matchingRidingSkill) const;
     Item* FindItem(uint32 ItemId);
+    Item* FindItemInBank(uint32 ItemId);
     Item* FindKeyForLockValue(uint32 reqSkillValue);
     Item* FindBombForLockValue(uint32 reqSkillValue);
     Item* FindConsumable(uint32 displayId) const;
@@ -275,13 +316,17 @@ public:
     bool CastPetSpell(uint32 spellId, Unit* target = NULL);
     bool Buff(uint32 spellId, Unit * target, void (*beforeCast)(Player *) = NULL);
     bool SelfBuff(uint32 spellId);
+    bool IsInRange(Unit* Target, uint32 spellId);
 
     void UseItem(Item *item, uint32 targetFlag, ObjectGuid targetGUID);
     void UseItem(Item *item, uint8 targetInventorySlot);
     void UseItem(Item *item, Unit *target);
     void UseItem(Item *item);
 
-    void EquipItem(Item& item);
+    void PlaySound(uint32 soundid);
+    void Announce(AnnounceFlags msg);
+
+    void EquipItem(Item* src_Item);
     //void Stay();
     //bool Follow(Player& player);
     void SendNotEquipList(Player& player);
@@ -300,10 +345,16 @@ public:
     BotState GetState() { return m_botState; };
     void SetState(BotState state);
     void SetQuestNeedItems();
-    void SendQuestItemList(Player& player);
+    void SetQuestNeedCreatures();
+    void SendQuestNeedList(Player& player);
+    bool IsInQuestItemList(uint32 itemid) { return m_needItemList.find(itemid) != m_needItemList.end(); };
+    bool IsInQuestCreatureList(uint32 id) { return m_needCreatureOrGOList.find(id) != m_needCreatureOrGOList.end(); };
+    bool IsItemUseful(uint32 itemid);
     void SendOrders(Player& player);
     bool FollowCheckTeleport(WorldObject &obj);
     void DoLoot();
+    void DoFlight();
+    void GetTaxi(ObjectGuid guid, BotTaxiNode& nodes);
 
     bool HasCollectFlag(uint8 flag) { return m_collectionFlags & flag; }
     void SetCollectFlag(uint8 flag)
@@ -317,6 +368,8 @@ public:
 
     void AcceptQuest(Quest const *qInfo, Player *pGiver);
     void TurnInQuests(WorldObject *questgiver);
+    bool ListQuests(WorldObject* questgiver);
+    bool AddQuest(const uint32 entry, WorldObject* questgiver);
 
     bool IsInCombat();
     void UpdateAttackerInfo();
@@ -335,8 +388,21 @@ public:
 
     void ItemLocalization(std::string& itemName, const uint32 itemID) const;
     void QuestLocalization(std::string& questTitle, const uint32 questID) const;
+    void CreatureLocalization(std::string& creatureName, const uint32 entry) const;
+    void GameObjectLocalization(std::string& gameobjectName, const uint32 entry) const;
 
     uint8 GetFreeBagSpace() const;
+    void SellGarbage(bool verbose = true);
+    void Sell(const uint32 itemid);
+    void AddAuction(const uint32 itemid, Creature* aCreature);
+    void ListAuctions();
+    bool RemoveAuction(const uint32 auctionid);
+    void Repair(const uint32 itemid, Creature* rCreature);
+    bool Talent(Creature* tCreature);
+    void InspectUpdate();
+    bool Withdraw(const uint32 itemid);
+    bool Deposit(const uint32 itemid);
+    void BankBalance();
 
 private:
     // ****** Closed Actions ********************************
@@ -348,6 +414,10 @@ private:
 
     // Helper routines not needed by class AIs.
     void UpdateAttackersForTarget(Unit *victim);
+
+    void _doSellItem(Item* const item, std::ostringstream &report, std::ostringstream &canSell, uint32 &TotalCost, uint32 &TotalSold);
+    void MakeItemLink(const Item *item, std::ostringstream &out, bool IncludeQuantity = true);
+    void MakeItemLink(const ItemPrototype *item, std::ostringstream &out);
 
     // it is safe to keep these back reference pointers because m_bot
     // owns the "this" object and m_master owns m_bot. The owner always cleans up.
@@ -368,17 +438,22 @@ private:
     // defines the state of behaviour of the bot
     BotState m_botState;
 
-    // list of items needed to fullfill quests
+    // list of items, creatures or gameobjects needed to fullfill quests
     BotNeedItem m_needItemList;
+    BotNeedItem m_needCreatureOrGOList;
 
     // list of creatures we recently attacked and want to loot
-    BotLootCreature m_lootTargets;      // list of creatures
+    BotNPCList m_findNPC;               // list of NPCs
+    BotTaskList m_tasks;                // list of tasks
+    BotLootTarget m_lootTargets;        // list of targets
     BotSpellList m_spellsToLearn;       // list of spells
     ObjectGuid m_lootCurrent;           // current remains of interest
     ObjectGuid m_lootPrev;              // previous loot
     BotLootEntry m_collectObjects;      // object entries searched for in findNearbyGO
+    BotTaxiNode m_taxiNodes;            // flight node chain;
 
     uint8 m_collectionFlags;            // what the bot should look for to loot
+    bool m_inventory_full;
 
     time_t m_TimeDoneEating;
     time_t m_TimeDoneDrinking;
@@ -389,6 +464,7 @@ private:
     // can do it
     uint32 m_spellIdCommand;
     ObjectGuid m_targetGuidCommand;
+    ObjectGuid m_taxiMaster;
 
     AttackerInfoList m_attackerInfo;
 

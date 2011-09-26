@@ -5303,7 +5303,12 @@ void ObjectMgr::ReturnOrDeleteOldMails(bool serverUp)
 
         Player *pl = 0;
         if (serverUp)
+// patch do not delete COD
+/*
             pl = GetPlayer(m->receiverGuid);
+*/
+            pl = GetPlayer(ObjectGuid(HIGHGUID_PLAYER,m->sender));
+//
         if (pl)
         {                                                   //this code will run very improbably (the time is between 4 and 5 am, in game is online a player, who has old mail
             //his in mailbox and he has already listed his mails )
@@ -7823,6 +7828,45 @@ void ObjectMgr::LoadSpellDisabledEntrys()
     sLog.outString();
     sLog.outString( ">> Loaded %u disabled spells ( %u - is cheaters spells)", total_count, cheat_spell_count);
 }
+
+// patch sanctuary area-zone-map
+void ObjectMgr::LoadCustomSanctuary()
+{
+    m_custom_sanctuary.clear();                                // need for reload case
+    QueryResult *result = WorldDatabase.Query("SELECT entry, type FROM custom_sanctuary WHERE type > 0");
+
+    uint32 total_count = 0;
+
+    if( !result )
+    {
+        BarGoLink bar( 1 );
+        bar.step();
+
+        sLog.outString();
+        sLog.outString( ">> Loaded %u disabled spells", total_count );
+        return;
+    }
+
+    BarGoLink bar( result->GetRowCount() );
+
+    Field* fields;
+    do
+    {
+        bar.step();
+        fields = result->Fetch();
+        uint32 entry = fields[0].GetUInt32();
+        uint8 type = fields[1].GetUInt32();
+        
+        m_custom_sanctuary[entry] = type;
+        ++total_count;
+    } while ( result->NextRow() );
+
+    delete result;
+
+    sLog.outString();
+    sLog.outString( ">> Loaded %u custom sanctuary entries", total_count);
+}
+//
 
 void ObjectMgr::LoadFishingBaseSkillLevel()
 {

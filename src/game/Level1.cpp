@@ -149,7 +149,7 @@ bool ChatHandler::HandleNotifyCommand(char* args)
     data << str;
     sWorld.SendGlobalMessage(&data);
 
-	if (sIRC.BOTMASK & 256)
+    if (sIRC.BOTMASK & 256)
     {
         std::string ircchan = std::string("#") + sIRC._irc_chan[sIRC.anchn];
         sIRC.Send_IRC_Channel(ircchan, sIRC.MakeMsg("\00304,08\037/!\\\037\017\00304 Global Notify \00304,08\037/!\\\037\017 %s", "%s", args), true);
@@ -597,6 +597,9 @@ bool ChatHandler::HandleGonameCommand(char* args)
         // to point to see at target with same orientation
         float x,y,z;
         target->GetContactPoint(_player,x,y,z);
+// patch anticaduta dopo teleport
+        z += 4.0f; // a bit higher to avoid falling through map
+//
 
         _player->TeleportTo(target->GetMapId(), x, y, z, _player->GetAngle(target), TELE_TO_GM_MODE);
     }
@@ -616,7 +619,9 @@ bool ChatHandler::HandleGonameCommand(char* args)
         bool in_flight;
         if (!Player::LoadPositionFromDB(target_guid, map,x,y,z,o,in_flight))
             return false;
-
+// patch anticaduta dopo teleport
+        z += 4.0f; // a bit higher to avoid falling through map
+//
         return HandleGoHelper(_player, map, x, y, &z);
     }
 
@@ -640,7 +645,9 @@ bool ChatHandler::HandleRecallCommand(char* args)
         SetSentErrorMessage(true);
         return false;
     }
-
+// patch anticaduta dopo teleport
+    float z = target->m_recallZ + 4.0f; // a bit higher to avoid falling through map
+//
     return HandleGoHelper(target, target->m_recallMap, target->m_recallX, target->m_recallY, &target->m_recallZ, &target->m_recallO);
 }
 
@@ -2309,8 +2316,6 @@ bool ChatHandler::HandleIRCpmCommand(char* args)
     if (Msg.find(" ") == std::string::npos)
         return false;
 
-
-
     std::string To = Msg.substr(0, Msg.find(" "));
     Msg = Msg.substr(Msg.find(" ") + 1);
     std::size_t pos;
@@ -2326,3 +2331,39 @@ bool ChatHandler::HandleIRCpmCommand(char* args)
 
     return true;
 }
+
+// patch nameannounce
+bool ChatHandler::HandleNameAnnounceCommand(char* args)
+{
+    int32 strid = 0;
+
+    if(!*args)
+        return false;
+
+    switch(m_session->GetSecurity())
+    {
+      case SEC_GAMEMASTER:
+        strid = LANG_SYSTEMMESSAGE_MODERATOR;
+        break;
+      case SEC_ADMINISTRATOR:
+        strid = LANG_SYSTEMMESSAGE_GAMEMASTER;
+        break;
+      case SEC_CONSOLE:
+        strid = LANG_SYSTEMMESSAGE_ADMINISTRATOR;
+        break;
+      default:
+        return false;
+    }
+
+    sWorld.SendWorldText(strid, m_session->GetPlayerName(), args);
+// patch nameannounce
+    if (sIRC.BOTMASK & 256)
+    {
+        std::string channel = "#" + sIRC._irc_chan[sIRC.anchn];
+        sIRC.Send_IRC_Channel(channel, sIRC.MakeMsg("\00304,08\037/!\\\037\017\00304 NameAnnounce from: \00304,08\037/!\\\037\017 %s", "%s", m_session->GetPlayerName()), true);
+        sIRC.Send_IRC_Channel(channel, sIRC.MakeMsg("\00304,08\037/!\\\037\017\00304 Text: \00304,08\037/!\\\037\017 %s", "%s", args), true);
+    }
+//
+    return true;
+}
+//

@@ -254,6 +254,7 @@ void BattleGroundWS::EventPlayerCapturedFlag(Player *Source)
     }
     //for flag capture is reward 2 honorable kills
     RewardHonorToTeam(GetBonusHonorFromKill(2), Source->GetTeam());
+    RewardXpToTeam(0, 0.6f, Source->GetTeam());
 
     // despawn flags
     SpawnEvent(WS_EVENT_FLAG_A, 0, false);
@@ -579,10 +580,18 @@ void BattleGroundWS::Reset()
         m_FlagState[i]       = BG_WS_FLAG_STATE_ON_BASE;
         m_TeamScores[i]      = 0;
     }
+
+// patch reward Call to Arms
+/*
     bool isBGWeekend = BattleGroundMgr::IsBGWeekend(GetTypeID());
     m_ReputationCapture = (isBGWeekend) ? 45 : 35;
     m_HonorWinKills = (isBGWeekend) ? 3 : 1;
     m_HonorEndKills = (isBGWeekend) ? 4 : 2;
+*/
+    m_ReputationCapture = 35;
+    m_HonorWinKills = 1;
+    m_HonorEndKills = 2;
+//
 
     m_FocusedAssault = BG_WS_CARRIER_DEBUFF;
     m_FocusedAssaultExtra = true;
@@ -602,6 +611,10 @@ void BattleGroundWS::EndBattleGround(Team winner)
     //complete map_end rewards (even if no team wins)
     RewardHonorToTeam(GetBonusHonorFromKill(m_HonorEndKills), ALLIANCE);
     RewardHonorToTeam(GetBonusHonorFromKill(m_HonorEndKills), HORDE);
+
+    RewardXpToTeam(0, 0.8f, winner);
+    RewardXpToTeam(0, 0.8f, ALLIANCE);
+    RewardXpToTeam(0, 0.8f, HORDE);
 
     BattleGround::EndBattleGround(winner);
 }
@@ -627,9 +640,11 @@ void BattleGroundWS::UpdatePlayerScore(Player *Source, uint32 type, uint32 value
     {
         case SCORE_FLAG_CAPTURES:                           // flags captured
             ((BattleGroundWGScore*)itr->second)->FlagCaptures += value;
+            Source->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE, WS_OBJECTIVE_CAPTURE_FLAG);
             break;
         case SCORE_FLAG_RETURNS:                            // flags returned
             ((BattleGroundWGScore*)itr->second)->FlagReturns += value;
+            Source->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE, WS_OBJECTIVE_RETURN_FLAG);
             break;
         default:
             BattleGround::UpdatePlayerScore(Source, type, value);

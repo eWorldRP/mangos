@@ -1037,6 +1037,34 @@ class ObjectMgr
             return result;
         }
 
+// patch sanctuary area-zone-map
+        void LoadCustomSanctuary();
+        bool IsCustomSanctuary(uint32 areaid)
+        {
+            AreaTableEntry const* place = GetAreaEntryByAreaID(areaid);
+
+            // map
+            CustomSanctuaryMap::const_iterator itrmap = m_custom_sanctuary.find(place->mapid);
+            if(itrmap != m_custom_sanctuary.end())
+                if(itrmap->second == 1)
+                    return true;
+
+            // zone
+            CustomSanctuaryMap::const_iterator itrzone = m_custom_sanctuary.find(place->zone ? place->zone : place->ID );
+            if(itrzone != m_custom_sanctuary.end())
+                if(itrzone->second == 2)
+                    return true;
+
+            // area
+            CustomSanctuaryMap::const_iterator itrarea = m_custom_sanctuary.find(place->ID);
+            if(itrarea != m_custom_sanctuary.end())
+                if(itrarea->second == 3)
+                    return true;
+
+            return false;
+        }
+//
+
         int GetIndexForLocale(LocaleConstant loc);
         LocaleConstant GetLocaleForIndex(int i);
 
@@ -1248,6 +1276,11 @@ class ObjectMgr
 
         typedef UNORDERED_MAP<uint32, uint32> SpellDisabledMap;
         SpellDisabledMap  m_spell_disabled;
+        
+// patch sanctuary area-zone-map
+        typedef UNORDERED_MAP<uint32, uint32> CustomSanctuaryMap;
+        CustomSanctuaryMap  m_custom_sanctuary;
+//
 
         GraveYardMap        mGraveYardMap;
 

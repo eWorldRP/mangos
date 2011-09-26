@@ -410,7 +410,13 @@ class MANGOS_DLL_SPEC Aura
         void HandleAuraAddMechanicAbilities(bool apply, bool Real);
         void HandleAuraSetVehicle(bool apply, bool Real);
         void HandleAuraFactionChange(bool apply, bool real);
-        void HandleAuraStopNaturalManaRegen(bool apply, bool Real);
+        void HandleAuraStopNaturalManaRegen(bool apply, bool real);
+// patch aura 15
+        void HandleAuraDamageShield (bool Apply, bool Real);
+//
+// patch aura 253
+        void HandleModBlockCritChance (bool Apply, bool Real);
+//
 
         virtual ~Aura();
 

@@ -687,6 +687,10 @@ void BattleGround::CastSpellOnTeam(uint32 SpellID, Team teamId)
 
 void BattleGround::RewardHonorToTeam(uint32 Honor, Team teamId)
 {
+// patch missing rate honor multiplier
+    float multiplier = sWorld.getConfig(CONFIG_FLOAT_RATE_HONOR);
+    Honor *= multiplier;
+//
     for(BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
     {
         if (itr->second.OfflineRemoveTime)
@@ -704,7 +708,12 @@ void BattleGround::RewardHonorToTeam(uint32 Honor, Team teamId)
         if(!team) team = plr->GetTeam();
 
         if (team == teamId)
+// patch tabellone bonus honor
+/*
             UpdatePlayerScore(plr, SCORE_BONUS_HONOR, Honor);
+*/
+            plr->RewardHonor(NULL, 1, (float)Honor);
+//
     }
 }
 
@@ -766,6 +775,54 @@ void BattleGround::RewardXpToTeam(uint32 Xp, float percentOfLevel, Team team)
     }
 }
 
+// patch reward Call to Arms
+void BattleGround::RewardQuestEventToTeam(uint32 questid, Team TeamID)
+{
+    for(BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+    {
+        if (itr->second.OfflineRemoveTime)
+            continue;
+
+        Player *plr = sObjectMgr.GetPlayer(itr->first);
+        if (!plr)
+        {
+            sLog.outError("BattleGround:RewardReputationToTeam: Player (GUID: %u) not found!", itr->first.GetCounter());
+            continue;
+        }
+
+        Team team = itr->second.PlayerTeam;
+        if(!team)
+            team = plr->GetTeam();
+
+        if (team == TeamID)
+            plr->AreaExploredOrEventHappens(questid);
+    }
+}
+
+void BattleGround::RewardArenaPointsIfTeamAndQuestActive(uint32 ap, uint32 questid, Team TeamID)
+{
+    for(BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+    {
+        if (itr->second.OfflineRemoveTime)
+            continue;
+        Player *plr = sObjectMgr.GetPlayer(itr->first);
+
+        if (!plr)
+        {
+            sLog.outError("BattleGround:RewardArenaPointsIfTeamAndQuestActive: Player (GUID: %u) not found!", itr->first.GetCounter());
+            continue;
+        }
+
+        Team team = itr->second.PlayerTeam;
+        if(!team)
+            team = plr->GetTeam();
+
+        if (team == TeamID && (plr->GetQuestStatus(questid) == QUEST_STATUS_INCOMPLETE))
+            plr->ModifyArenaPoints(ap);
+    }
+}
+//
+
 void BattleGround::UpdateWorldState(uint32 Field, uint32 Value)
 {
     WorldPacket data;
@@ -812,7 +869,27 @@ void BattleGround::EndBattleGround(Team winner)
         SetWinner(WINNER_NONE);
         winmsg_id = LANG_BG_WIN_NONE;
     }
-
+    
+// patch reward Call to Arms
+    if (isBattleGround() && BattleGroundMgr::IsBGWeekend(GetTypeID()))
+    {
+        if (winner == ALLIANCE)
+        {
+            RewardHonorToTeam(GetBonusHonorFromKill(CTA_REWARD_WIN), ALLIANCE);
+            RewardHonorToTeam(GetBonusHonorFromKill(CTA_REWARD_LOSE), HORDE);
+            RewardArenaPointsIfTeamAndQuestActive(CTA_EXTRA_ARENA_POINTS, CTA_DAILY_QUEST, ALLIANCE);
+            RewardQuestEventToTeam(CTA_DAILY_QUEST, ALLIANCE);
+        }
+        if (winner == HORDE)
+        {
+            RewardHonorToTeam(GetBonusHonorFromKill(CTA_REWARD_WIN), HORDE);
+            RewardHonorToTeam(GetBonusHonorFromKill(CTA_REWARD_LOSE), ALLIANCE);
+            RewardArenaPointsIfTeamAndQuestActive(CTA_EXTRA_ARENA_POINTS, CTA_DAILY_QUEST, HORDE);
+            RewardQuestEventToTeam(CTA_DAILY_QUEST, HORDE);
+        }
+    }
+//
+ 
     SetStatus(STATUS_WAIT_LEAVE);
 
     int32 iRealEndTime = m_EndTime;
@@ -832,6 +909,12 @@ void BattleGround::EndBattleGround(Team winner)
             int32 loser_change = loser_arena_team->LostAgainst(winner_rating);
             DEBUG_LOG("--- Winner rating: %u, Loser rating: %u, Winner change: %i, Loser change: %i ---", winner_rating, loser_rating, winner_change, loser_change);
             SetArenaTeamRatingChangeForTeam(winner, winner_change);
+// patch arena log
+            std::string TeamWinner_Name = winner_arena_team->GetName();
+            std::string TeamLoser_Name = loser_arena_team->GetName();
+            sLog.outArena("[%uvs%u] Team vincente: %u (nome: %s,rating:%u), vince %u rating. Team perdente: %u (nome: %s,rating:%u), perde %d rating.",
+                winner_arena_team->GetType(), winner_arena_team->GetType(), winner_arena_team->GetId(), TeamWinner_Name.c_str(), winner_arena_team->GetRating(), winner_change, loser_arena_team->GetId(), TeamLoser_Name.c_str(), loser_arena_team->GetRating(), loser_change);
+//
             SetArenaTeamRatingChangeForTeam(GetOtherTeam(winner), loser_change);
             /** World of Warcraft Armory **/
             if (sWorld.getConfig(CONFIG_BOOL_ARMORY_SUPPORT))
@@ -951,6 +1034,18 @@ void BattleGround::EndBattleGround(Team winner)
                     plr->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_PERSONAL_RATING, GetArenaType(), member->personal_rating);
                     plr->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_TEAM_RATING, GetArenaType(), winner_arena_team->GetStats().rating);
                 }
+// patch arena log
+                std::string IP_str = plr->GetSession()->GetRemoteAddress();
+                BattleGroundScoreMap::const_iterator plroster = m_PlayerScores.find(plr->GetGUID());
+                uint32 DD = 0, HD = 0;
+                if (plroster != m_PlayerScores.end())
+                {
+                    DD = plroster->second->DamageDone;
+                    HD = plroster->second->HealingDone;
+                }
+                sLog.outArena("Il giocatore %s (IP: %s) vince. (personal rating: %u, danno fatto: %u, cure fatte: %u)",
+                    plr->GetName(), IP_str.c_str(), winner_arena_team->GetMember(plr->GetGUID())->personal_rating, DD, HD);
+//
             }
             else
             {
@@ -958,6 +1053,18 @@ void BattleGround::EndBattleGround(Team winner)
 
                 // Arena lost => reset the win_rated_arena having the "no_loose" condition
                 plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_WIN_RATED_ARENA, ACHIEVEMENT_CRITERIA_CONDITION_NO_LOOSE);
+// patch arena log
+                std::string IP_str = plr->GetSession()->GetRemoteAddress();
+                BattleGroundScoreMap::const_iterator plroster = m_PlayerScores.find(plr->GetGUID());
+                uint32 DD = 0, HD = 0;
+                if (plroster != m_PlayerScores.end())
+                {
+                    DD = plroster->second->DamageDone;
+                    HD = plroster->second->HealingDone;
+                }
+                sLog.outArena("Il giocatore %s (IP: %s) perde. (personal rating: %u, danno fatto: %u, cure fatte: %u)",
+                    plr->GetName(), IP_str.c_str(), loser_arena_team->GetMember(plr->GetGUID())->personal_rating, DD, HD);
+//
             }
         }
 
@@ -1043,9 +1150,25 @@ void BattleGround::RewardMark(Player *plr,uint32 count)
     {
         case BATTLEGROUND_AV:
             if (count == ITEM_WINNER_COUNT)
+// patch marchi wintergrasp a fine bg
+/*
+                 RewardSpellCast(plr,SPELL_AV_MARK_WINNER);
+*/
+            {
                 RewardSpellCast(plr,SPELL_AV_MARK_WINNER);
-            else
+                RewardItem(plr,ITEM_WG_MARK_OF_HONOR, 3);
+            }
+//
+             else
+// patch marchi wintergrasp a fine bg
+/*
                 RewardSpellCast(plr,SPELL_AV_MARK_LOSER);
+*/
+            {
+                 RewardSpellCast(plr,SPELL_AV_MARK_LOSER);
+                RewardItem(plr,ITEM_WG_MARK_OF_HONOR, 1);
+            }
+//
             break;
         case BATTLEGROUND_WS:
             if (count == ITEM_WINNER_COUNT)
@@ -1060,6 +1183,17 @@ void BattleGround::RewardMark(Player *plr,uint32 count)
                 RewardSpellCast(plr,SPELL_AB_MARK_LOSER);
             break;
         case BATTLEGROUND_EY:                               // no rewards
+// patch marchi wintergrasp a fine bg
+            if (count == ITEM_WINNER_COUNT)
+                RewardItem(plr,ITEM_WG_MARK_OF_HONOR, 1);
+            break;
+        case BATTLEGROUND_SA:
+            if (count == ITEM_WINNER_COUNT)
+                RewardItem(plr,ITEM_WG_MARK_OF_HONOR, 2);
+            else
+                RewardItem(plr,ITEM_WG_MARK_OF_HONOR, 1);
+            break;
+//
         default:
             break;
     }
@@ -1221,10 +1355,11 @@ void BattleGround::RemovePlayerAtLeave(ObjectGuid guid, bool Transport, bool Sen
 
             if (!team) team = plr->GetTeam();
 
+            plr->RemoveArenaAuras(true);                // removes debuffs / dots etc., we don't want the player to die after porting out
+
             // if arena, remove the specific arena auras
             if (isArena())
             {
-                plr->RemoveArenaAuras(true);                // removes debuffs / dots etc., we don't want the player to die after porting out
                 bgTypeId=BATTLEGROUND_AA;                   // set the bg type to all arenas (it will be used for queue refreshing)
 
                 // unsummon current and summon old pet if there was one and there isn't a current pet
@@ -1363,6 +1498,10 @@ void BattleGround::AddPlayer(Player *plr)
     if (plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_AFK))
         plr->ToggleAFK();
 
+    // remove LFG-Buff from player
+    if (plr->HasAura(72221))
+        plr->RemoveAurasDueToSpell(72221);
+
     // score struct must be created in inherited class
 
     ObjectGuid guid = plr->GetObjectGuid();
@@ -1409,6 +1548,13 @@ void BattleGround::AddPlayer(Player *plr)
             plr->CastSpell(plr, SPELL_ARENA_PREPARATION, true);
 
         plr->CastSpell(plr, SPELL_ARENA_DAMPENING, true);
+// patch arena log
+        if (isRated())
+        {
+            std::string IP_str = plr->GetSession()->GetRemoteAddress();
+            sLog.outArena("Il giocatore %s (IP: %s) entra in arena.", plr->GetName(), IP_str.c_str());
+        }    
+//
     }
     else
     {
@@ -1420,15 +1566,38 @@ void BattleGround::AddPlayer(Player *plr)
         plr->CastSpell(plr, SPELL_BATTLEGROUND_DAMPENING, true);
     }
 
-    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_WIN_BG, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
     plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_DAMAGE_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_CAST_SPELL, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, ACHIEVEMENT_CRITERIA_CONDITION_MAP,GetMapId());
 
     // setup BG group membership
     PlayerAddedToBGCheckIfBGIsRunning(plr);
     AddOrSetPlayerToCorrectBgGroup(plr, guid, team);
+    
+// patch bg unmount at start
+    plr->Unmount();
+    plr->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
+//
 
     // Log
     DETAIL_LOG("BATTLEGROUND: Player %s joined the battle.", plr->GetName());
+
+// patch reward Call to Arms
+   if (isBattleGround() && BattleGroundMgr::IsBGWeekend(GetTypeID()))
+   {
+       Quest const* qInfo = sObjectMgr.GetQuestTemplate(CTA_DAILY_QUEST);
+       if (qInfo && plr->CanTakeQuest(qInfo, false) && plr->CanAddQuest(qInfo, false))
+           plr->AddQuest(qInfo, plr);
+   }
+//
 }
 
 uint32 BattleGround::GetDamageDoneForTeam(Team team)
@@ -1575,7 +1744,11 @@ void BattleGround::UpdatePlayerScore(Player *Source, uint32 type, uint32 value)
             if (isBattleGround())
             {
                 // reward honor instantly
+// patch tabellone bonus honor
+/*
                 if (Source->RewardHonor(NULL, 1, (float)value))
+*/
+//
                     itr->second->BonusHonor += value;
             }
             break;
@@ -1952,6 +2125,9 @@ void BattleGround::HandleKillPlayer( Player *player, Player *killer )
     // add +1 kills to group and +1 killing_blows to killer
     if (killer)
     {
+        killer->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL);
+        killer->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS);
+
         UpdatePlayerScore(killer, SCORE_HONORABLE_KILLS, 1);
         UpdatePlayerScore(killer, SCORE_KILLING_BLOWS, 1);
 
@@ -1963,7 +2139,10 @@ void BattleGround::HandleKillPlayer( Player *player, Player *killer )
                 continue;
 
             if (plr->GetTeam() == killer->GetTeam() && plr->IsAtGroupRewardDistance(player))
+            {
                 UpdatePlayerScore(plr, SCORE_HONORABLE_KILLS, 1);
+                plr->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL);
+            }
         }
     }
 

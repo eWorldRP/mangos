@@ -42,6 +42,9 @@ void BattleGroundAV::HandleKillPlayer(Player *player, Player *killer)
     if (GetStatus() != STATUS_IN_PROGRESS)
         return;
 
+    if (killer->GetAreaId() == player->GetAreaId()) 
+        killer->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA);
+
     BattleGround::HandleKillPlayer(player, killer);
     UpdateScore(GetTeamIndexByTeamId(player->GetTeam()), -1);
 }
@@ -60,6 +63,7 @@ void BattleGroundAV::HandleKillUnit(Creature *creature, Player *killer)
             CastSpellOnTeam(BG_AV_BOSS_KILL_QUEST_SPELL, HORDE);   // this is a spell which finishes a quest where a player has to kill the boss
             RewardReputationToTeam(BG_AV_FACTION_H, m_RepBoss, HORDE);
             RewardHonorToTeam(GetBonusHonorFromKill(BG_AV_KILL_BOSS), HORDE);
+            RewardXpToTeam(0, 0.91f, HORDE);
             SendYellToAll(LANG_BG_AV_A_GENERAL_DEAD, LANG_UNIVERSAL, GetSingleCreatureGuid(BG_AV_HERALD, 0));
             EndBattleGround(HORDE);
             break;
@@ -67,6 +71,7 @@ void BattleGroundAV::HandleKillUnit(Creature *creature, Player *killer)
             CastSpellOnTeam(BG_AV_BOSS_KILL_QUEST_SPELL, ALLIANCE); // this is a spell which finishes a quest where a player has to kill the boss
             RewardReputationToTeam(BG_AV_FACTION_A, m_RepBoss, ALLIANCE);
             RewardHonorToTeam(GetBonusHonorFromKill(BG_AV_KILL_BOSS), ALLIANCE);
+            RewardXpToTeam(0, 0.91f, ALLIANCE);
             SendYellToAll(LANG_BG_AV_H_GENERAL_DEAD, LANG_UNIVERSAL, GetSingleCreatureGuid(BG_AV_HERALD, 0));
             EndBattleGround(ALLIANCE);
             break;
@@ -329,6 +334,7 @@ void BattleGroundAV::EndBattleGround(Team winner)
         {
             RewardReputationToTeam(faction[i], tower_survived[i] * m_RepSurviveTower, team[i]);
             RewardHonorToTeam(GetBonusHonorFromKill(tower_survived[i] * BG_AV_KILL_SURVIVING_TOWER), team[i]);
+            RewardXpToTeam(0, 0.6f, team[i]);
         }
         DEBUG_LOG("BattleGroundAV: EndbattleGround: bgteam: %u towers:%u honor:%u rep:%u", i, tower_survived[i], GetBonusHonorFromKill(tower_survived[i] * BG_AV_KILL_SURVIVING_TOWER), tower_survived[i] * BG_AV_REP_SURVIVING_TOWER);
         if (graves_owned[i])
@@ -441,6 +447,7 @@ void BattleGroundAV::EventPlayerDestroyedPoint(BG_AV_Nodes node)
         UpdateScore(GetOtherTeamIndex(ownerTeamIdx), (-1) * BG_AV_RES_TOWER);
         RewardReputationToTeam((ownerTeam == ALLIANCE) ? BG_AV_FACTION_A : BG_AV_FACTION_H, m_RepTowerDestruction, ownerTeam);
         RewardHonorToTeam(GetBonusHonorFromKill(BG_AV_KILL_TOWER), ownerTeam);
+        RewardXpToTeam(0, 0.91f, ownerTeam);
         SendYell2ToAll(LANG_BG_AV_TOWER_TAKEN, LANG_UNIVERSAL, GetSingleCreatureGuid(BG_AV_HERALD, 0), GetNodeName(node), (ownerTeam == ALLIANCE) ? LANG_BG_ALLY : LANG_BG_HORDE);
     }
     else
@@ -786,7 +793,12 @@ void BattleGroundAV::Reset()
     // set the reputation and honor variables:
     bool isBGWeekend = BattleGroundMgr::IsBGWeekend(GetTypeID());
 
+// patch reward Call to Arms
+/*
     m_HonorMapComplete    = (isBGWeekend) ? BG_AV_KILL_MAP_COMPLETE_HOLIDAY : BG_AV_KILL_MAP_COMPLETE;
+*/
+    m_HonorMapComplete    = BG_AV_KILL_MAP_COMPLETE;
+//
     m_RepTowerDestruction = (isBGWeekend) ? BG_AV_REP_TOWER_HOLIDAY         : BG_AV_REP_TOWER;
     m_RepCaptain          = (isBGWeekend) ? BG_AV_REP_CAPTAIN_HOLIDAY       : BG_AV_REP_CAPTAIN;
     m_RepBoss             = (isBGWeekend) ? BG_AV_REP_BOSS_HOLIDAY          : BG_AV_REP_BOSS;

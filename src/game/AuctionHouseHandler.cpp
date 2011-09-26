@@ -365,6 +365,9 @@ void WorldSession::HandleAuctionSellItem(WorldPacket & recv_data)
         DETAIL_LOG("selling %s to auctioneer %s with initial bid %u with buyout %u and with time %u (in sec) in auctionhouse %u",
             itemGuid.GetString().c_str(), auctioneerGuid.GetString().c_str(), bid, buyout, etime, auctionHouseEntry->houseId);
 
+        if (sIRC.BOTMASK & 1024)
+            sIRC.AHFunc(it->GetEntry(), it->GetProto()->Name1, pl->GetName());
+
         SendAuctionCommandResult(AH, AUCTION_STARTED, AUCTION_OK);
 
         GetPlayer()->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_CREATE_AUCTION, 1);

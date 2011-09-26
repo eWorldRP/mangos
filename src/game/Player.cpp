@@ -16,6 +16,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+// patch pdump pre-delete
+#include "Config/Config.h"
+#include "PlayerDump.h"
+//
 #include "Player.h"
 #include "Language.h"
 #include "Database/DatabaseEnv.h"
@@ -65,7 +69,6 @@
 #include "mangchat/IRCClient.h"
 
 #include <cmath>
-
 // Playerbot mod:
 #include "playerbot/PlayerbotAI.h"
 #include "playerbot/PlayerbotMgr.h"
@@ -84,6 +87,8 @@
 #define SKILL_TEMP_BONUS(x)    int16(PAIR32_LOPART(x))
 #define SKILL_PERM_BONUS(x)    int16(PAIR32_HIPART(x))
 #define MAKE_SKILL_BONUS(t, p) MAKE_PAIR32(t,p)
+
+extern Config botConfig;
 
 enum CharacterFlags
 {
@@ -385,6 +390,12 @@ UpdateMask Player::updateVisualBits;
 
 Player::Player (WorldSession *session): Unit(), m_mover(this), m_camera(this), m_achievementMgr(this), m_reputationMgr(this)
 {
+    m_transport = 0;
+
+    // Playerbot mod:
+    m_playerbotAI = 0;
+    m_playerbotMgr = 0;
+
     m_speakTime = 0;
     m_speakCount = 0;
 
@@ -560,6 +571,7 @@ Player::Player (WorldSession *session): Unit(), m_mover(this), m_camera(this), m
 
     m_lastFallTime = 0;
     m_lastFallZ = 0;
+    m_chatSpyGuid = 0;
 
     // Refer-A-Friend
     m_GrantableLevelsCount = 0;
@@ -618,18 +630,14 @@ Player::~Player ()
     delete m_LFGState;
 
     // Playerbot mod
-    if (m_playerbotAI)
-    {
+    if (m_playerbotAI) {
         delete m_playerbotAI;
-        m_playerbotAI = NULL;
+        m_playerbotAI = 0;
     }
-
-    if (m_playerbotMgr)
-    {
+    if (m_playerbotMgr) {
         delete m_playerbotMgr;
-        m_playerbotMgr = NULL;
+        m_playerbotMgr = 0;
     }
-
 }
 
 void Player::CleanupsBeforeDelete()
@@ -1131,9 +1139,9 @@ void Player::HandleDrowning(uint32 time_diff)
                 uint32 damage = urand(600, 700);
                 if (m_MirrorTimerFlags&UNDERWATER_INLAVA)
                     EnvironmentalDamage(DAMAGE_LAVA, damage);
-                // need to skip Slime damage in Undercity,
+                // need to skip Slime damage in Undercity and Ruins of Lordaeron arena
                 // maybe someone can find better way to handle environmental damage
-                else if (m_zoneUpdateId != 1497)
+                else if (m_zoneUpdateId != 1497 && m_zoneUpdateId != 3968)
                     EnvironmentalDamage(DAMAGE_SLIME, damage);
             }
         }
@@ -1507,7 +1515,7 @@ void Player::Update( uint32 update_diff, uint32 p_time )
     if (IsHasDelayedTeleport())
         TeleportTo(m_teleport_dest, m_teleport_options);
 
-        // Playerbot mod
+    // Playerbot mod
     if (m_playerbotAI)
         m_playerbotAI->UpdateAI(p_time);
     else if (m_playerbotMgr)
@@ -2062,6 +2070,9 @@ void Player::ProcessDelayedOperations()
             m_taxi.AddTaxiDestination(m_bgData.taxiPath[0]);
             m_taxi.AddTaxiDestination(m_bgData.taxiPath[1]);
             m_bgData.ClearTaxiPath();
+// patch join BG & flight path
+            m_bgData.m_needSave = true;
+//
 
             ContinueTaxiFlight();
         }
@@ -4341,6 +4352,31 @@ TrainerSpellState Player::GetTrainerSpellState(TrainerSpell const* trainer_spell
  */
 void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRealmChars, bool deleteFinally)
 {
+// patch pdump pre-delete
+    if(sConfig.GetBoolDefault("DumpActive", 0))
+    {
+        QueryResult *resultPlayer = CharacterDatabase.PQuery("SELECT name, level FROM characters WHERE guid='%u' ",
+                                                             playerguid.GetCounter());
+        if(resultPlayer)
+        {
+            Field *fields = resultPlayer->Fetch();
+
+            std::string pname = "";
+            uint32 plevel = fields[1].GetUInt32();
+            if(sConfig.GetBoolDefault("DumpTimestamp", 0))
+                pname = fields[0].GetCppString() + "_" + Log::GetTimestampStr() + ".sql";
+            else
+                pname = fields[0].GetCppString() + ".sql";
+
+            if(plevel >= uint32(sConfig.GetIntDefault("DumpMinLevel", 0)))
+            {
+                std::string directory = sConfig.GetStringDefault("DumpPath", "") + pname;
+                PlayerDumpWriter().WriteDump(directory, playerguid.GetCounter());
+            }
+            delete resultPlayer;
+        }
+    }
+//
     // for nonexistent account avoid update realm
     if (accountId == 0)
         updateRealmChars = false;
@@ -6889,6 +6925,10 @@ void Player::UpdateHonorFields()
 ///An exact honor value can also be given (overriding the calcs)
 bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor)
 {
+// patch inactive
+    if(HasAura(43681))
+        return false;
+//
     // do not reward honor in arenas, but enable onkill spellproc
     if (InArena())
     {
@@ -6980,7 +7020,7 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor)
             if (!cVictim->IsRacialLeader())
                 return false;
 
-            honor = 2000;                                    // ??? need more info
+            honor = 1000;/*2000*/                           // ??? need more info
             victim_rank = 19;                               // HK: Leader
 
             if (groupsize > 1)
@@ -7013,6 +7053,13 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor)
 
     // add honor points
     ModifyHonorPoints(int32(honor));
+    
+// patch tabellone bonus honor
+    // battleground update players honor in bg statistics
+    if(InBattleGround())
+        if(BattleGround *bg = GetBattleGround())
+            bg->UpdatePlayerScore(this, SCORE_BONUS_HONOR, uint32(honor));
+//
 
     ApplyModUInt32Value(PLAYER_FIELD_TODAY_CONTRIBUTION, uint32(honor), true);
     return true;
@@ -7168,6 +7215,98 @@ void Player::UpdateArea(uint32 newArea)
         // TODO: implement wintergrasp parachute when battle in progress
         /* if ((area->flags & AREA_FLAG_OUTDOOR_PVP) && IsFreeFlying() && <WINTERGRASP_BATTLE_IN_PROGRESS> && !isGameMaster())
             CastSpell(this, 58730, true); */
+
+// patch vehicles dismount in areas
+        if(!isGameMaster()&& GetVehicleInfo())
+        {
+            uint32 vehicleid = GetVehicleInfo()->GetEntry()->m_ID;
+
+            switch(vehicleid)
+            {
+                // horde siege tank
+                case 26:
+                {
+                    if(newArea != 4027 && newArea != 4130)
+                    {
+                        if(Creature* veh = GetMap()->GetAnyTypeCreature(GetVehicle()->GetBase()->GetObjectGuid()))
+                        {
+                            veh->DealDamage(veh, veh->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                            veh->ForcedDespawn();
+                        }
+                    }
+                    break;
+                }
+                // the etymidian
+                case 111:
+                {
+                    if(newArea != 4282)
+                    {
+                        if(Creature* veh = GetMap()->GetAnyTypeCreature(GetVehicle()->GetBase()->GetObjectGuid()))
+                        {
+                            veh->DealDamage(veh, veh->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                            veh->ForcedDespawn();
+                        }
+                    }
+                    break;
+                }
+                // wyrmrest skytalon (vehicle id 165 is also Onslaught Gryphon!)
+                case 165:
+                {
+                    if(newArea != 4024 && newArea != 4120 && newArea != 4649 && newArea != 4640 && newArea != 4641)
+                    {
+                        if(Creature* veh = GetMap()->GetAnyTypeCreature(GetVehicle()->GetBase()->GetObjectGuid()))
+                        {
+                            veh->DealDamage(veh, veh->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                            veh->ForcedDespawn();
+                        }
+                    }
+                    break;
+                }
+                // warbear matriarch
+                case 208:
+                {
+                    if(newArea != 4535 && newArea != 4422)
+                    {
+                        if(Creature* veh = GetMap()->GetAnyTypeCreature(GetVehicle()->GetBase()->GetObjectGuid()))
+                        {
+                            veh->DealDamage(veh, veh->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                            veh->ForcedDespawn();
+                        }
+                    }
+                    break;
+                }
+                // argent tournament vehicles
+                case 349:
+                {
+                    if(!HasAura(64373))
+                    {
+                        if(Creature* veh = GetMap()->GetAnyTypeCreature(GetVehicle()->GetBase()->GetObjectGuid()))
+                        {
+                            veh->DealDamage(veh, veh->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                            veh->ForcedDespawn();
+                        }
+                    }
+                    break;
+                }
+                // pasqua 2011, zabamoto
+                case 335:
+                {
+                    // ulduar e silithus
+                    if(newArea != 4273 && newArea != 1377)
+                    {
+                        if(Creature* veh = GetMap()->GetAnyTypeCreature(GetVehicle()->GetBase()->GetObjectGuid()))
+                        {
+                            veh->DealDamage(veh, veh->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
+                            veh->ForcedDespawn();
+                        }
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+//
     }
 
     UpdateAreaDependentAuras();
@@ -7238,8 +7377,13 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea)
         if (IsPvP() && !HasFlag(PLAYER_FLAGS,PLAYER_FLAGS_IN_PVP) && pvpInfo.endTimer == 0)
             pvpInfo.endTimer = time(0);                     // start toggle-off
     }
-
+    
+// patch sanctuary area-zone-map
+/*
     if (zone->flags & AREA_FLAG_SANCTUARY)                   // in sanctuary
+*/
+    if(zone->flags & AREA_FLAG_SANCTUARY || sObjectMgr.IsCustomSanctuary(newArea))
+//
     {
         SetByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_SANCTUARY);
         if (sWorld.IsFFAPvPRealm())
@@ -13741,6 +13885,22 @@ void Player::PrepareGossipMenu(WorldObject *pSource, uint32 menuId)
                 case GOSSIP_OPTION_TABARDDESIGNER:
                 case GOSSIP_OPTION_AUCTIONEER:
                     break;                                  // no checks
+                case GOSSIP_OPTION_BOT:
+                {
+                    if(botConfig.GetBoolDefault("PlayerbotAI.DisableBots", false) && !pCreature->isInnkeeper())
+                    {
+                        ChatHandler(this).PSendSysMessage("|cffff0000Playerbot system is currently disabled!");
+                        hasMenuItem = false;
+                        break;
+                    }
+
+                    std::string reqQuestIds = botConfig.GetStringDefault("PlayerbotAI.BotguyQuests","");
+                    uint32 cost = botConfig.GetIntDefault("PlayerbotAI.BotguyCost",0);
+                    if((reqQuestIds == "" || requiredQuests(reqQuestIds.c_str())) && !pCreature->isInnkeeper() && this->GetMoney() >= cost)
+                        pCreature->LoadBotMenu(this);
+                    hasMenuItem = false;
+                    break;
+                }
                 default:
                     sLog.outErrorDb("Creature entry %u have unknown gossip option %u for menu %u", pCreature->GetEntry(), itr->second.option_id, itr->second.menu_id);
                     hasMenuItem = false;
@@ -13888,12 +14048,12 @@ void Player::OnGossipSelect(WorldObject* pSource, uint32 gossipListId, uint32 me
         }
     }
 
-    GossipMenuItemData pMenuData = gossipmenu.GetItemData(gossipListId);
-
     switch(gossipOptionId)
     {
         case GOSSIP_OPTION_GOSSIP:
         {
+            GossipMenuItemData pMenuData = gossipmenu.GetItemData(gossipListId);
+
             if (pMenuData.m_gAction_poi)
                 PlayerTalkClass->SendPointOfInterest(pMenuData.m_gAction_poi);
 
@@ -13981,6 +14141,59 @@ void Player::OnGossipSelect(WorldObject* pSource, uint32 gossipListId, uint32 me
             }
 
             GetSession()->SendBattlegGroundList(guid, bgTypeId);
+            break;
+        }
+        case GOSSIP_OPTION_BOT:
+        {
+            // DEBUG_LOG("GOSSIP_OPTION_BOT");
+            PlayerTalkClass->CloseGossip();
+            uint32 guidlo = PlayerTalkClass->GossipOptionSender(gossipListId);
+            uint32 cost = botConfig.GetIntDefault("PlayerbotAI.BotguyCost",0);
+
+            if (!GetPlayerbotMgr())
+                SetPlayerbotMgr(new PlayerbotMgr(this));
+
+            if(GetPlayerbotMgr()->GetPlayerBot(ObjectGuid(HIGHGUID_PLAYER,guidlo)) != NULL)
+            {
+                GetPlayerbotMgr()->LogoutPlayerBot(ObjectGuid(HIGHGUID_PLAYER,guidlo));
+            }
+            else if(GetPlayerbotMgr()->GetPlayerBot(ObjectGuid(HIGHGUID_PLAYER,guidlo)) == NULL)
+            {
+                QueryResult *resultchar = CharacterDatabase.PQuery("SELECT COUNT(*) FROM characters WHERE online = '1' AND account = '%u'", m_session->GetAccountId());
+                if(resultchar)
+                {
+                    Field *fields = resultchar->Fetch();
+                    int maxnum = botConfig.GetIntDefault("PlayerbotAI.MaxNumBots", 9);
+                    int acctcharcount = fields[0].GetUInt32();
+                    if(!(m_session->GetSecurity() > SEC_PLAYER))
+                        if(acctcharcount > maxnum)
+                        {
+                            ChatHandler(this).PSendSysMessage("|cffff0000You cannot summon anymore bots.(Current Max: |cffffffff%u)",maxnum);
+                            delete resultchar;
+                            break;
+                        }
+                }
+                delete resultchar;
+
+                QueryResult *resultlvl = CharacterDatabase.PQuery("SELECT level,name FROM characters WHERE guid = '%u'", guidlo);
+                if(resultlvl)
+                {
+                    Field *fields=resultlvl->Fetch();
+                    int maxlvl = botConfig.GetIntDefault("PlayerbotAI.RestrictBotLevel", 80);
+                    int charlvl = fields[0].GetUInt32();
+                    if(!(m_session->GetSecurity() > SEC_PLAYER))
+                        if(charlvl > maxlvl)
+                        {
+                            ChatHandler(this).PSendSysMessage("|cffff0000You cannot summon |cffffffff[%s]|cffff0000, it's level is too high.(Current Max:lvl |cffffffff%u)",fields[1].GetString(),maxlvl);
+                            delete resultlvl;
+                            break;
+                        }
+                }
+                delete resultlvl;
+
+                GetPlayerbotMgr()->AddPlayerBot(ObjectGuid(HIGHGUID_PLAYER,guidlo));
+                this->ModifyMoney(-(int32)cost);
+            }
             break;
         }
     }
@@ -15620,6 +15833,12 @@ void Player::TalkedToCreature( uint32 entry, ObjectGuid guid )
         {
             if (qInfo->HasSpecialFlag(QuestSpecialFlags(QUEST_SPECIAL_FLAG_KILL_OR_CAST | QUEST_SPECIAL_FLAG_SPEAKTO)))
             {
+// patch quest Cardinal Ruby (14151)
+                // HACK FIX: Quest 14151 is completeable by talking 5 times to 28701
+                // but it shouldn't give a Kill Credit in this case
+                if (qInfo->GetQuestId() == 14151)
+                    return;
+//
                 for (int j = 0; j < QUEST_OBJECTIVES_COUNT; ++j)
                 {
                                                             // skip spell casts and Gameobject objectives
@@ -16534,11 +16753,19 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
     SetUInt32Value(PLAYER_CHOSEN_TITLE, curTitle);
 
     // Not finish taxi flight path
-    if (m_bgData.HasTaxiPath())
+// patch join BG & flight path
+//  if (m_bgData.HasTaxiPath())
+    if (m_bgData.HasTaxiPath() && !m_bgData.bgInstanceID)
+//
     {
         m_taxi.ClearTaxiDestinations();
         for (int i = 0; i < 2; ++i)
             m_taxi.AddTaxiDestination(m_bgData.taxiPath[i]);
+// patch join BG & flight path
+        m_bgData.ClearTaxiPath();
+        m_bgData.m_needSave = true;
+//
+
     }
     else if (!m_taxi.LoadTaxiDestinationsFromString(taxi_nodes, GetTeam()))
     {
@@ -17754,7 +17981,7 @@ InstancePlayerBind* Player::BindToInstance(DungeonPersistentState *state, bool p
         else
         {
             if (!load)
-                CharacterDatabase.PExecute("INSERT INTO character_instance (guid, instance, permanent, extend) VALUES ('%u', '%u', '%u', '%u')",
+                CharacterDatabase.PExecute("REPLACE INTO character_instance (guid, instance, permanent, extend) VALUES ('%u', '%u', '%u', '%u')",
                     GetGUIDLow(), state->GetInstanceId(), permanent, extend);
         }
 
@@ -19227,8 +19454,59 @@ void Player::BuildPlayerChat(WorldPacket *data, uint8 msgtype, const std::string
     *data << uint8(chatTag());
 }
 
+const char* chatNameColors[MAX_CHAT_MSG_TYPE][2] = {
+    { NULL, NULL },
+    { "ffffff", "Say" },
+    { "aaaaff", "Party" },
+    { "ff7f00", "Raid" },
+    { "40ff40", "Guild" },
+    { "40c040", "GOfficer" },
+    { "ff4040", "Yell" },
+    { "8e08c2", "W From Smb"},
+    { NULL, NULL },
+    { "ff20fc", "W To Smb" },
+    { "ff8040", "Emote" }, // Standard emote, not used by ChatSpy ?
+    { "ff8040", "TEmote" }, // Text emote ("/me", "/e", "/em")
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { "ffc0c0", "Channel" },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { "ff4809", "R Leader" },
+    { "ff4800", "R Warning" },
+    { NULL, NULL },
+    { NULL, NULL },
+    { NULL, NULL },
+    { "ff7f00", "BG Leader" },
+    { "ffdbb7", "BG" },
+    { NULL, NULL }
+};
+
 void Player::Say(const std::string& text, const uint32 language)
 {
+    HandleChatSpyMessage(text, CHAT_MSG_SAY, language);
     WorldPacket data(SMSG_MESSAGECHAT, 200);
     BuildPlayerChat(&data, CHAT_MSG_SAY, text, language);
     SendMessageToSetInRange(&data,sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_SAY),true);
@@ -19236,6 +19514,7 @@ void Player::Say(const std::string& text, const uint32 language)
 
 void Player::Yell(const std::string& text, const uint32 language)
 {
+    HandleChatSpyMessage(text, CHAT_MSG_YELL, language);
     WorldPacket data(SMSG_MESSAGECHAT, 200);
     BuildPlayerChat(&data, CHAT_MSG_YELL, text, language);
     SendMessageToSetInRange(&data,sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_YELL),true);
@@ -19243,6 +19522,7 @@ void Player::Yell(const std::string& text, const uint32 language)
 
 void Player::TextEmote(const std::string& text)
 {
+    HandleChatSpyMessage(text, CHAT_MSG_EMOTE, LANG_UNIVERSAL);
     WorldPacket data(SMSG_MESSAGECHAT, 200);
     BuildPlayerChat(&data, CHAT_MSG_EMOTE, text, LANG_UNIVERSAL);
     SendMessageToSetInRange(&data,sWorld.getConfig(CONFIG_FLOAT_LISTEN_RANGE_TEXTEMOTE),true, !sWorld.getConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_INTERACTION_CHAT) );
@@ -19261,6 +19541,7 @@ void Player::Whisper(const std::string& text, uint32 language, ObjectGuid receiv
         WorldPacket data(SMSG_MESSAGECHAT, 200);
         BuildPlayerChat(&data, CHAT_MSG_WHISPER, text, language);
         rPlayer->GetSession()->SendPacket(&data);
+        rPlayer->HandleChatSpyMessage(text, CHAT_MSG_WHISPER, language, this);
 
         // not send confirmation for addon messages
         if (language != LANG_ADDON)
@@ -19268,6 +19549,7 @@ void Player::Whisper(const std::string& text, uint32 language, ObjectGuid receiv
             data.Initialize(SMSG_MESSAGECHAT, 200);
             rPlayer->BuildPlayerChat(&data, CHAT_MSG_WHISPER_INFORM, text, language);
             GetSession()->SendPacket(&data);
+            HandleChatSpyMessage(text, CHAT_MSG_WHISPER_INFORM, language, rPlayer);
         }
     }
     else
@@ -19289,6 +19571,70 @@ void Player::Whisper(const std::string& text, uint32 language, ObjectGuid receiv
     // if player whisper someone, auto turn of dnd to be able to receive an answer
     if (isDND() && !rPlayer->isGameMaster())
         ToggleDND();
+}
+
+void Player::HandleChatSpyMessage(const std::string& msg, uint8 type, uint32 lang, Player* sender, std::string special)
+{
+    if(!m_chatSpyGuid || lang == LANG_ADDON || sender == this)
+        return;
+
+    if(m_chatSpyGuid == GetGUID())
+    {
+        m_chatSpyGuid = 0;
+        return;
+    }
+
+    Player *plr = sObjectMgr.GetPlayer(m_chatSpyGuid);
+
+    if(!plr || !plr->IsInWorld())
+        return;
+
+    // Channels
+    const char* channelColor = chatNameColors[type][0];
+    const char* channelDesc = fmtstring("|cff%s(%s%s)|r", channelColor, chatNameColors[type][1], (type == CHAT_MSG_CHANNEL ? fmtstring(" '%s'", special.c_str()) : ""));
+
+    // Recipients
+    const char* from = fmtstring("|cffff0000%s|r", GetName());
+    const char* to = channelDesc;
+
+    // Special cases
+    switch(type)
+    {
+        // Public channels
+        case CHAT_MSG_CHANNEL:
+        case CHAT_MSG_SAY:
+        case CHAT_MSG_YELL:
+        case CHAT_MSG_EMOTE:
+        case CHAT_MSG_TEXT_EMOTE:
+        case CHAT_MSG_PARTY:
+        case CHAT_MSG_RAID:
+        case CHAT_MSG_RAID_LEADER:
+        case CHAT_MSG_RAID_WARNING:
+        case CHAT_MSG_GUILD:
+        case CHAT_MSG_OFFICER:
+        case CHAT_MSG_BATTLEGROUND:
+        case CHAT_MSG_BATTLEGROUND_LEADER:
+            if(sender)
+            {
+                from = sender->GetName();
+                to = fmtstring("|cffff0000%s|r %s", GetName(), channelDesc);
+            }
+            break;
+        // Private channels
+        case CHAT_MSG_WHISPER:
+            from = sender->GetName();
+            to = fmtstring("|cffff0000%s|r %s", GetName(), channelDesc);
+            break;
+        case CHAT_MSG_WHISPER_INFORM:
+            //from = to;
+            to = fmtstring("%s %s", sender->GetName(), channelDesc);
+            break;
+        default:
+            sLog.outError("ChatSpy: unknown msg type(%u), sender %u", type, (sender ? sender->GetGUIDLow() : 0));
+            return;
+    }
+
+    ChatHandler(plr->GetSession()).PSendSysMessage("%s => %s: %s", from, to, msg.c_str());
 }
 
 void Player::PetSpellInitialize()
@@ -24617,4 +24963,32 @@ uint32 Player::GetModelForForm(SpellShapeshiftFormEntry const* ssEntry) const
     if (!modelid)
         modelid = ssEntry->modelID_A;
     return modelid;
+}
+
+bool Player::HasOrphan()
+{
+    if (GetMiniPet())
+    {
+        // We have a summon, is it an orphan?
+        bool hasOrphan = false;
+
+        switch (GetMiniPet()->GetEntry())
+        {
+            case 33532: //wolvar
+            case 14444: //orc
+            case 33533: //oracle
+            case 14305: //human
+            case 22818: //draenei
+            case 22817: //bloodelf
+            {
+                hasOrphan = true;
+                break;
+            }
+
+        }
+
+        if (hasOrphan)
+            return true;
+    }
+    return false;
 }

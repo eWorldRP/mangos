@@ -578,7 +578,13 @@ void Spell::FillTargetMap()
                         }
                         break;
                     case 0:
-                        SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
+// patch life burst hack
+                        // Life Burst (Wyrmrest Skytalon) hack - spell is AoE but implicitTargets dont match here :/
+                        if (m_spellInfo->Id == 57143)
+                            SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, tmpUnitMap);
+                        else
+                            SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
+//
                         tmpUnitMap.push_back(m_caster);
                         break;
                     default:
@@ -1667,15 +1673,18 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 55479:                                 // Forced Obedience (Naxxramas - Razovius encounter)
                 case 59870:                                 // Glare of the Tribunal (h) (Halls of Stone)
                 case 62016:                                 // Charge Orb (Thorim)
+                case 62042:                                 // Stormhammer (Thorim)
                 case 62488:                                 // Activate Construct (Ulduar - Ignis encounter)
                 case 63018:                                 // Searing Light nonhero
                 case 63024:                                 // Gravity Bomb (XT-002)
                 case 63387:                                 // Rapid Burst
                 case 63545:                                 // Icicle Hodir(trigger spell from 62227)
+                case 63713:                                 // Dominate Mind (Yogg-Saron)
                 case 63795:                                 // Psychosis (Yogg-Saron)
-                case 62042:                                 // Stormhammer (Thorim)
+                case 63830:                                 // Malady of the Mind (Yogg-Saron)
                 case 64218:                                 // Overcharge
                 case 64234:                                 // Gravity Bomb (h) (XT-002)
+                case 64465:                                 // Shadow Beacon (Yogg-Saron)
                 case 64531:                                 // Rapid Burst (h)
                 case 65121:                                 // Searing Light hero
                 case 65301:                                 // Psychosis (Yogg-Saron)
@@ -1699,12 +1708,13 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 69140:                                 // Coldflame (Icecrown Citadel, Lord Marrowgar encounter)
                 case 69674:                                 // Mutated Infection
                 case 71224:
+                case 72088:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 10H)
                 case 72091:                                 // Frozen Orb (Vault of Archavon, Toravon encounter, normal)
                 case 72378:                                 // Blood Nova
+                case 72385:                                 // Boiling Blood (10N)
+                case 72442:                                 // Boiling Blood (10H)
                 case 73022:                                 // Mutated Infection (heroic)
                 case 73023:                                 // Mutated Infection (heroic)
-                case 72088:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 10H)
-                case 73058:                                 // Blood Nova
                 case 73142:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10N)
                 case 73144:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10H)
                 case 51146:                                 // Searching Gaze (Halls Of Stone)
@@ -1712,6 +1722,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     break;
                 case 28542:                                 // Life Drain
                 case 62476:                                 // Icicle (Hodir 10man)
+                case 63802:                                 // Brain Link (Yogg-Saron)
                 case 66013:                                 // Penetrating Cold (10 man)
                 case 66332:                                 // Nerubian Burrower (Trial of the Crusader, ->
                 case 67755:                                 // -> Anub'arak encounter, 10 and 10 heroic)
@@ -1762,6 +1773,9 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 68510:                                 // Penetrating Cold (25 man, heroic)
                     unMaxTargets = 5;
                     break;
+                case 72441:                                 // Boiling Blood (25N)
+                case 72443:                                 // Boiling Blood (25H)
+                    unMaxTargets = 6;
                 case 61694:                                 // Arcane Storm(H) (25 man) (Malygos)
                     unMaxTargets = 7;
                     break;
@@ -1902,6 +1916,10 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             float angle = 2.0f * M_PI_F * rand_norm_f();
             float dest_x, dest_y, dest_z;
             m_caster->GetClosePoint(dest_x, dest_y, dest_z, 0.0f, radius, angle);
+// patch lightning arrows visual effect
+            if (m_spellInfo->Id == 66084)                   // cosmetic hack for Lightning Arrows  
+                dest_z += 10.0f;                             // (Trial of the Champion encounter)
+//
             m_targets.setDestination(dest_x, dest_y, dest_z);
 
             targetUnitMap.push_back(m_caster);
@@ -2172,6 +2190,25 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
         case TARGET_ALL_ENEMY_IN_AREA:
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+
+// patch lunatic gaze
+            // Lunatic Gaze (Yogg saron and laughing skulls)
+            if (m_spellInfo->Id == 64168 || m_spellInfo->Id == 64164)
+            {
+                if (WorldObject *caster = GetCastingObject())
+                {
+                    for (UnitList::iterator itr = targetUnitMap.begin(), next; itr != targetUnitMap.end(); itr = next)
+                    {
+                        next = itr;
+                        ++next;
+
+                        if (!(*itr)->HasInArc(M_PI_F, caster))
+                            targetUnitMap.erase(itr);
+                    }
+                }
+            }
+//
+
             if (m_spellInfo->Id == 62240 || m_spellInfo->Id == 62920)      // Solar Flare
             {
                 if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(62239))
@@ -2198,6 +2235,11 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             if (IsPositiveEffect(m_spellInfo, effIndex))
                 targetB = SPELL_TARGETS_FRIENDLY;
 
+// patch quest Torching Sunfury Hold (10233)
+            // hack - spell for quest 10233
+            if (m_spellInfo->Id == 34526)
+                targetB = SPELL_TARGETS_ALL;
+//
             UnitList tempTargetUnitMap;
             SpellScriptTargetBounds bounds = sSpellMgr.GetSpellScriptTargetBounds(m_spellInfo->Id);
 
@@ -2235,6 +2277,23 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 }
             }
 
+// patch yogg saron spells
+            // Shattered Illusion should only hit 4 creatures listed below
+            if (m_spellInfo->Id == 64173)
+            {
+                for (UnitList::iterator itr = targetUnitMap.begin(), next; itr != targetUnitMap.end(); itr = next)
+                {
+                    next = itr;
+                    ++next;
+
+                    if ((*itr)->GetEntry() != 33288 &&  // Yogg
+                        (*itr)->GetEntry() != 33966 &&  // Crusher tentacle
+                        (*itr)->GetEntry() != 33983 &&  // Constricter tentacle
+                        (*itr)->GetEntry() != 33985)    // Corrupter tentacle
+                        targetUnitMap.erase(itr);
+                }
+            }
+//
             // exclude caster
             targetUnitMap.remove(m_caster);
             break;
@@ -2517,6 +2576,31 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     // target amount stored in parent spell dummy effect but hard to access
                     FillRaidOrPartyManaPriorityTargets(targetUnitMap, m_caster, m_caster, radius, 3, true, false, true);
                     break;
+// patch encapsulate, pact of the darkfallen, bloodbolt splash, infrigidate
+                case 45662:                                 // Encapsulate
+                    // hack, to aoivd other hacks in spellbonusdmg-, crit-, etc. calc.
+                    FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_HOSTILE);
+                    break;
+                case 71390:                                 // Pact of the Darkfallen
+                    if (FillCustomTargetMap(effIndex, targetUnitMap)) 
+                        break;
+                    break;
+                case 71341:                                 // Pact of the Darkfallen
+                    if (effIndex == EFFECT_INDEX_1)
+                        if (FillCustomTargetMap(effIndex, targetUnitMap)) 
+                          break;
+                    break;
+                case 71447:                                 // Bloodbolt Splash 10N
+                case 71481:                                 // Bloodbolt Splash 25N
+                case 71482:                                 // Bloodbolt Splash 10H
+                case 71483:                                 // Bloodbolt Splash 25H
+                    FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
+                    targetUnitMap.remove(m_caster);
+                    break;
+                case 74960:                                 // Infrigidate
+                    FillCustomTargetMap(effIndex, targetUnitMap);
+                    break;
+//
                 default:
                     // selected friendly units (for casting objects) around casting object
                     FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY, GetCastingObject());
@@ -2524,6 +2608,45 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             }
             break;
         case TARGET_ALL_FRIENDLY_UNITS_IN_AREA:
+// patch echoes of light
+            // Echoes of Light
+            if (m_spellInfo->Id == 71610)
+            {
+                CellPair  p(MaNGOS::ComputeCellPair(m_caster->GetPositionX(),  m_caster->GetPositionY()));
+                Cell cell(p);
+                cell.SetNoCreate();
+                std::list<Unit*> tempTargetUnitMap;
+                {
+                    MaNGOS::AnyFriendlyUnitInObjectRangeCheck  u_check(m_caster, radius);
+                    MaNGOS::UnitListSearcher<MaNGOS::AnyFriendlyUnitInObjectRangeCheck>  searcher(tempTargetUnitMap, u_check);
+
+                    TypeContainerVisitor<MaNGOS::UnitListSearcher<MaNGOS::AnyFriendlyUnitInObjectRangeCheck>,  WorldTypeMapContainer > world_unit_searcher(searcher);
+                    TypeContainerVisitor<MaNGOS::UnitListSearcher<MaNGOS::AnyFriendlyUnitInObjectRangeCheck>,  GridTypeMapContainer >  grid_unit_searcher(searcher);
+
+                    cell.Visit(p, world_unit_searcher,  *m_caster->GetMap(), *m_caster, radius);
+                    cell.Visit(p, grid_unit_searcher,  *m_caster->GetMap(), *m_caster, radius);
+                }
+
+                if(tempTargetUnitMap.empty())
+                    break;
+
+                tempTargetUnitMap.sort(TargetDistanceOrderNear(m_caster));
+
+                //Now to get us a random target that's in the initial  range of the spell
+                uint32 t = 0;
+                std::list<Unit*>::iterator itr =  tempTargetUnitMap.begin();
+                while(itr != tempTargetUnitMap.end() &&  (*itr)->IsWithinDist(m_caster, radius))
+                    ++t, ++itr;
+
+                if(!t)
+                    break;
+
+                itr = tempTargetUnitMap.begin();
+                std::advance(itr, rand() % t);
+                Unit *pUnitTarget = *itr;
+                targetUnitMap.push_back(pUnitTarget);
+            }
+//
             // Circle of Healing
             if (m_spellInfo->SpellFamilyName == SPELLFAMILY_PRIEST && m_spellInfo->SpellVisual[0] == 8253)
             {
@@ -3233,7 +3356,10 @@ void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
         {
             sLog.outDebug("Player %s cast a spell %u which was disabled by server administrator",   m_caster->GetName(), m_spellInfo->Id);
             if (result == 2)
-            sLog.outChar("Player %s cast a spell %u which was disabled by server administrator and marked as CheatSpell",   m_caster->GetName(), m_spellInfo->Id);
+// patch miglioramento spell_disabled logga player infami
+//          sLog.outChar("Player %s cast a spell %u which was disabled by server administrator and marked as CheatSpell",   m_caster->GetName(), m_spellInfo->Id);
+            sLog.outCustom("Player %s prova a castare la spell %u, che è impostata a CheatSpell. Mappa: %u, posizione: %f %f %f",   m_caster->GetName(), m_spellInfo->Id, m_caster->GetMapId(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ());
+//
         }
         SendCastResult(SPELL_FAILED_SPELL_UNAVAILABLE);
         finish(false);
@@ -3280,7 +3406,17 @@ void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
         // will show cast bar
         SendSpellStart();
 
-        TriggerGlobalCooldown();
+// patch no GCD per alcune spell
+//      TriggerGlobalCooldown();
+        // exception for spells which should not trigger global cooldown
+        switch(m_spellInfo->Id)
+        {
+            case 30823:    // Shamanistic Rage
+                break;
+            default:
+                TriggerGlobalCooldown();
+        }
+//
     }
     // execute triggered or without cast time explicitly in call point
     else if (m_timer == 0 || m_IsTriggeredSpell)
@@ -3349,6 +3485,15 @@ void Spell::cancel()
 
 void Spell::cast(bool skipCheck)
 {
+// patch anti-cheat con le spell
+    if (m_spellInfo->Id <= 0 || m_spellInfo->Id > MAX_SPELL_ID)
+       return;
+
+    SpellEntry const* spellInfo = sSpellStore.LookupEntry(m_spellInfo->Id);
+
+    if (!spellInfo)
+        return;
+//
     SetExecutedCurrently(true);
 
     if (!m_caster->CheckAndIncreaseCastCounter())
@@ -3459,6 +3604,11 @@ void Spell::cast(bool skipCheck)
             // Fingers of Frost
             else if (m_spellInfo->Id == 44544)
                 AddPrecastSpell(74396);                     // Fingers of Frost
+// patch glypf of mirror image
+            // Mirror Image (glyph)
+            else if (m_spellInfo->Id == 55342 && m_caster->HasAura(63093))
+                AddPrecastSpell(65047); // summon one more
+//
             break;
         }
         case SPELLFAMILY_WARRIOR:
@@ -3611,6 +3761,15 @@ void Spell::cast(bool skipCheck)
                 AddTriggeredSpell(55095);                   // Frost Fever
             break;
         }
+// patch consume shadows
+        case SPELLFAMILY_WARLOCK:
+        {
+            // Consume shadows - invisible detect part
+            if (m_spellInfo->SpellIconID == 207 && (m_spellInfo->SpellFamilyFlags & UI64LIT(0x000000000000000002000000)))
+                AddPrecastSpell(54501);                     // Consume shadows - MOD_STEALTH_DETECT
+            break;
+        }
+//
         default:
             break;
     }
@@ -3688,6 +3847,15 @@ void Spell::cast(bool skipCheck)
 
 void Spell::handle_immediate()
 {
+// patch anti-cheat con le spell
+    if (m_spellInfo->Id <= 0 || m_spellInfo->Id > MAX_SPELL_ID || m_spellInfo->Id == 32 || m_spellInfo->Id == 48 || m_spellInfo->Id == 576 || m_spellInfo->Id == 80 || m_spellInfo->Id == 160)
+        return;
+
+    SpellEntry const* spellInfo = sSpellStore.LookupEntry(m_spellInfo->Id);
+	
+    if (!spellInfo)
+        return;
+//
     // process immediate effects (items, ground, etc.) also initialize some variables
     _handle_immediate_phase();
 
@@ -5171,6 +5339,48 @@ SpellCastResult Spell::CheckCast(bool strict)
                 return SPELL_FAILED_CASTER_AURASTATE;
         }
 
+// patch dispel check for dispellable auras
+        if (!m_IsTriggeredSpell)
+        {
+           bool foundDispel = false;
+           bool foundNotDispel = false;
+           for (uint8 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                if (m_spellInfo->Effect[i] != SPELL_EFFECT_NONE)
+                    if (m_spellInfo->Effect[i] == SPELL_EFFECT_DISPEL)
+                        foundDispel = true;
+                        else
+                        {
+                            foundNotDispel = true;
+                            break;
+                        }
+
+            // if the spell has only dispel effects
+            if(foundDispel && !foundNotDispel && target->IsFriendlyTo(m_caster))
+            {
+                bool foundNeg = false;
+                Unit::SpellAuraHolderMap const& auras = target->GetSpellAuraHolderMap();
+                for(Unit::SpellAuraHolderMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
+                {
+                    SpellAuraHolderPtr holder = itr->second;
+                    SpellEntry const * pEntry = holder->GetSpellProto();
+
+                    if (!holder->IsPositive() && holder->GetSpellProto()->Dispel) // negative and can be dispelled
+                        for (uint8 eff = 0; eff < MAX_EFFECT_INDEX; ++eff)
+                            if ((1 << holder->GetSpellProto()->Dispel) &
+                                GetDispellMask(DispelType(m_spellInfo->EffectMiscValue[eff])))
+                            {
+                                foundNeg = true;
+                                break;
+                            }
+                    if (foundNeg)
+                        break;
+                }
+                if (!foundNeg)
+                    return SPELL_FAILED_NOTHING_TO_DISPEL;
+            }
+        }
+//
+
         // totem immunity for channeled spells(needs to be before spell cast)
         // spell attribs for player channeled spells
         // (from rsa - very strange attributes set...)
@@ -6048,6 +6258,17 @@ SpellCastResult Spell::CheckCast(bool strict)
                     return SPELL_FAILED_BAD_TARGETS;
                 break;
             }
+// patch anti-cambio spec in bg e arene
+            case SPELL_EFFECT_TALENT_SPEC_SELECT:
+            {
+                // can't change during already started arena/battleground
+                if (m_caster->GetTypeId() == TYPEID_PLAYER)
+                {
+                    if (((Player*)m_caster)->GetBattleGround() && ((Player*)m_caster)->GetBattleGround()->GetStatus() == STATUS_IN_PROGRESS)
+                        return SPELL_FAILED_NOT_IN_BATTLEGROUND;
+                }
+            }
+//
             default:
                 break;
         }
@@ -8019,6 +8240,24 @@ void Spell::CancelGlobalCooldown()
         ((Player*)m_caster)->GetGlobalCooldownMgr().CancelGlobalCooldown(m_spellInfo);
 }
 
+//patch Seal fate+mutilate
+bool Spell::CheckAlreadyTriggeredSpell (uint32 spellId)
+{
+    bool find=false;
+    SpellEntry const *spellInfo = sSpellStore.LookupEntry(spellId );
+
+    if(!spellInfo)
+    {
+        sLog.outError("Spell::AddTriggeredSpell: unknown spell id %u used as triggred spell for spell %u)", spellId, m_spellInfo->Id);
+        return false;
+    }
+
+    for(SpellInfoList::const_iterator si = m_TriggerSpells.begin(); si != m_TriggerSpells.end() && !find; ++si)
+        find= (find || (*si)->Id == spellId);
+    return find;
+}
+//
+
 bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
 {
     float radius;
@@ -8356,6 +8595,8 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             break;
         }
+// patch temporary revert frost sphere check
+/*
         case 65919: // Anub'arak Cast Check Ice Spell (Trial of the Crusader - Anub'arak)
         case 67858:
         case 67859:
@@ -8366,6 +8607,8 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetB[i], targetUnitMap);
             break;
         }
+*/
+//
         case 67470: // Pursuing Spikes (Check Aura and Summon Spikes) (Trial Of The Crusader - Anub'arak)
         {
             UnitList tmpUnitMap;

@@ -68,15 +68,15 @@ source_group("References"
   REGULAR_EXPRESSION Reference|RefManager|ThreatManager
 )
 
+source_group("MangChat"
+  REGULAR_EXPRESSION mangchat/.*
+)
+
 source_group("Movement"
   REGULAR_EXPRESSION spline|Spline|packet_builder
   FILES
     movement/typedefs.h
     movement/util.cpp
-)
-
-source_group("MangChat"
-  REGULAR_EXPRESSION mangchat/.*
 )
 
 if(PCH)
@@ -125,3 +125,5 @@ if(PCH)
     endif()
   endif()
 endif()
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/playerbot/playerbot.conf.dist.in DESTINATION ${CONF_DIR} RENAME playerbot.conf.dist)

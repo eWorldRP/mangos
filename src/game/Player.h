@@ -61,6 +61,10 @@ class Spell;
 class Item;
 struct AreaTrigger;
 
+// Playerbot mod
+#include "playerbot/PlayerbotMgr.h"
+#include "playerbot/PlayerbotAI.h"
+
 typedef std::deque<Mail*> PlayerMails;
 
 #define PLAYER_MAX_SKILLS           127
@@ -1176,6 +1180,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         void UpdateInnerTime (time_t time) { time_inn_enter = time; }
 
         void RemovePet(PetSaveMode mode);
+        bool HasOrphan();
 
         uint32 GetPhaseMaskForSpawn() const;                // used for proper set phase for DB at GM-mode creature/GO spawn
 
@@ -1477,9 +1482,11 @@ class MANGOS_DLL_SPEC Player : public Unit
         void AddTimedQuest( uint32 quest_id ) { m_timedquests.insert(quest_id); }
         void RemoveTimedQuest( uint32 quest_id ) { m_timedquests.erase(quest_id); }
 
+        // Playerbot mod
         void chompAndTrim(std::string& str);
         bool getNextQuestId(const std::string& pString, unsigned int& pStartPos, unsigned int& pId);
         void skill(std::list<uint32>& m_spellsToLearn);
+        void MakeTalentGlyphLink(std::ostringstream &out);
         bool requiredQuests(const char* pQuestIdString);
 
         /*********************************************************/
@@ -2263,6 +2270,10 @@ class MANGOS_DLL_SPEC Player : public Unit
         void SetHomebindToLocation(WorldLocation const& loc, uint32 area_id);
         void RelocateToHomebind() { SetLocationMapId(m_homebindMapId); Relocate(m_homebindX, m_homebindY, m_homebindZ); }
         bool TeleportToHomebind(uint32 options = 0) { return TeleportTo(m_homebindMapId, m_homebindX, m_homebindY, m_homebindZ, GetOrientation(), options); }
+
+        // ChatSpy
+        void HandleChatSpyMessage(const std::string& msg, uint8 type, uint32 lang, Player* sender = NULL, std::string special = "");
+        uint64 m_chatSpyGuid;
 
         Object* GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask);
 

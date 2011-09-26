@@ -143,8 +143,11 @@ void MapPersistentState::SetGORespawnTime( uint32 loguid, time_t t )
 
 void MapPersistentState::ClearRespawnTimes()
 {
-    m_goRespawnTimes.clear();
-    m_creatureRespawnTimes.clear();
+    if (!m_goRespawnTimes.empty())
+        m_goRespawnTimes.clear();
+
+    if (!m_creatureRespawnTimes.empty())
+        m_creatureRespawnTimes.clear();
 
     if (GetMap())
         UnloadIfEmpty();

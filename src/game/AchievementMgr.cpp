@@ -467,6 +467,18 @@ void AchievementMgr::ResetAchievementCriteria(AchievementCriteriaTypes type, uin
             case ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL:
             case ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE:
             case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA:
+            {
+                switch(achievementCriteria->referredAchievement)
+                {
+                    case 200:
+                    case 206:
+                    case 1252:
+                    case 158:
+                    case 157:
+                        continue;
+                }
+                SetCriteriaProgress(achievementCriteria, achievement, 0, PROGRESS_SET);
+            }
             case ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET:
             case ACHIEVEMENT_CRITERIA_TYPE_CAST_SPELL:
             {
@@ -880,7 +892,6 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
         switch (type)
         {
             // std. case: increment at 1
-            case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_DAILY_QUEST:
             case ACHIEVEMENT_CRITERIA_TYPE_NUMBER_OF_TALENT_RESETS:
             case ACHIEVEMENT_CRITERIA_TYPE_LOSE_DUEL:
             case ACHIEVEMENT_CRITERIA_TYPE_CREATE_AUCTION:
@@ -929,11 +940,31 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
 
             // specialized cases
 
+            case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_DAILY_QUEST:
+            {
+                // AchievementMgr::UpdateAchievementCriteria might also be called on login - skip in this case
+                if (!miscvalue1)
+                    continue;
+ 
+                if (achievement->categoryId == CATEGORY_CHILDRENS_WEEK)
+                {
+                    AchievementCriteriaRequirementSet const* data = sAchievementMgr.GetCriteriaRequirementSet(achievementCriteria);
+                    if (!data || !data->Meets(GetPlayer(),unit))
+                        continue;
+                    if(!GetPlayer()->HasOrphan())
+                        continue;
+                }
+
+                change = 1;
+                progressType = PROGRESS_ACCUMULATE;
+                break;
+            }
             case ACHIEVEMENT_CRITERIA_TYPE_WIN_BG:
             {
                 // AchievementMgr::UpdateAchievementCriteria might also be called on login - skip in this case
                 if (!miscvalue1)
                     continue;
+
                 if (achievementCriteria->win_bg.bgMapID != GetPlayer()->GetMapId())
                     continue;
 
@@ -943,6 +974,9 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
 
                 if (achievementCriteria->win_bg.additionalRequirement1_type || achievementCriteria->win_bg.additionalRequirement2_type)
                 {
+                    if(achievementCriteria->referredAchievement == 204 && (GetPlayer()->GetBattleGround()->GetPlayerScore(GetPlayer(),SCORE_DEATHS) > 0))
+                        continue;
+
                     // some hardcoded requirements
                     switch(achievementCriteria->referredAchievement)
                     {
@@ -1015,6 +1049,28 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 AchievementCriteriaRequirementSet const* data = sAchievementMgr.GetCriteriaRequirementSet(achievementCriteria);
                 if(!data || !data->Meets(GetPlayer(),unit))
                     continue;
+
+// patch achievement upper back pain
+                if(achievement->ID == 3797 || achievement->ID == 3813)
+                {
+                    // check map
+                    if(GetPlayer()->GetMapId() != 649)
+                        continue;
+
+                    // check 2 snobolds alive
+                    std::list<Creature*> SnoboList;
+                    GetPlayer()->GetCreatureListWithEntryInGrid(SnoboList, 34800, DEFAULT_VISIBILITY_INSTANCE);
+                    if(SnoboList.size() < 2)
+                        continue;
+
+                    // check wrong difficulty
+                    Difficulty diff = GetPlayer()->GetMap()->GetDifficulty();
+                    if(achievement->ID == 3813 && (diff == RAID_DIFFICULTY_10MAN_NORMAL || diff == RAID_DIFFICULTY_10MAN_HEROIC))
+                        continue;
+                    if(achievement->ID == 3797 && (diff == RAID_DIFFICULTY_25MAN_NORMAL || diff == RAID_DIFFICULTY_25MAN_HEROIC))
+                        continue;
+                }
+//
 
                 change = miscvalue2;
                 progressType = PROGRESS_ACCUMULATE;
@@ -1323,6 +1379,26 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 break;
             }
             case ACHIEVEMENT_CRITERIA_TYPE_CAST_SPELL:
+            {
+                if (!miscvalue1 || miscvalue1 != achievementCriteria->cast_spell.spellID)
+                    continue;
+
+                AchievementCriteriaRequirementSet const* data = sAchievementMgr.GetCriteriaRequirementSet(achievementCriteria);
+                if(!data)
+                    continue;
+
+                if(!data->Meets(GetPlayer(),unit))
+                    continue;
+
+                //Home Alone requires Orphan
+                if (achievementCriteria->cast_spell.spellID == 8690)
+                    if(!GetPlayer()->HasOrphan())
+                        continue;
+
+                change = 1;
+                progressType = PROGRESS_ACCUMULATE;
+                break;
+            }
             case ACHIEVEMENT_CRITERIA_TYPE_CAST_SPELL2:
             {
                 if (!miscvalue1 || miscvalue1 != achievementCriteria->cast_spell.spellID)
@@ -1421,6 +1497,18 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 AchievementCriteriaRequirementSet const* data = sAchievementMgr.GetCriteriaRequirementSet(achievementCriteria);
                 if (data && !data->Meets(GetPlayer(), unit, miscvalue1))
                     continue;
+
+                // Children's Week achievements have extra requirements
+                if (achievement->categoryId == CATEGORY_CHILDRENS_WEEK)
+                {
+                    if(!GetPlayer()->HasOrphan())
+                        continue;
+
+                    AchievementCriteriaRequirementSet const* data = sAchievementMgr.GetCriteriaRequirementSet(achievementCriteria);
+                    if (!data || !data->Meets(GetPlayer(), NULL))
+                        continue;
+                }
+
                 change = 1;
                 progressType = PROGRESS_ACCUMULATE;
                 break;
@@ -2592,7 +2680,7 @@ void AchievementGlobalMgr::LoadAchievementCriteriaRequirements()
                     //case 1276:
                     //case 1277:
                     case 1282:
-                    case 1789:
+                    //case 1789: // Not Needed for Childrens Week
                         break;
                     default:
                         continue;
@@ -2626,6 +2714,16 @@ void AchievementGlobalMgr::LoadAchievementCriteriaRequirements()
                 if(criteria->loot_type.lootTypeCount!=1)
                     continue;
                 break;
+            case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_DAILY_QUEST:
+            case ACHIEVEMENT_CRITERIA_TYPE_USE_ITEM:        // only Children's Week achievements
+            {
+                AchievementEntry const* achievement = sAchievementStore.LookupEntry(criteria->referredAchievement);
+                if (!achievement)
+                    continue;
+                if (achievement->categoryId != CATEGORY_CHILDRENS_WEEK)
+                    continue;
+                break;
+            }
             default:                                        // type not use DB data, ignore
                 continue;
         }

@@ -46,7 +46,7 @@ void IRCClient::run()
     sLog.outString("\n%s\n%s\n%s\n%s",
         "***************************************",
         "**   MangChat Threaded IRC Client    **",
-        "**    for inferna & orangevirus      **",
+        "**         for MangosR2              **",
         "***************************************");
     sLog.outString("MangChat: %s", sIRC._Mver.c_str());
     int cCount = 0;

@@ -770,7 +770,6 @@ int AuctionEntry::CompareAuctionEntry(uint32 column, const AuctionEntry *auc, Pl
         default:
             break;
     }
-
     return 0;
 }
 

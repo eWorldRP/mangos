@@ -91,6 +91,11 @@ enum MangosStrings
     LANG_USING_SCRIPT_LIB_UNKNOWN       = 65,
     LANG_USING_SCRIPT_LIB_NONE          = 66,
     // Room for more level 0              67-99 not used
+// patch nameannounce
+	LANG_SYSTEMMESSAGE_MODERATOR        = 67,
+    LANG_SYSTEMMESSAGE_GAMEMASTER       = 68,
+    LANG_SYSTEMMESSAGE_ADMINISTRATOR    = 69,
+//
 
     // level 1 chat
     LANG_GLOBAL_NOTIFY                  = 100,
@@ -282,9 +287,9 @@ enum MangosStrings
     LANG_COMMAND_TICKETON               = 291,
     LANG_COMMAND_TICKETOFF              = 292,
     LANG_COMMAND_TICKETNOTEXIST         = 293,
-    LANG_COMMAND_ALLTICKETDELETED       = 294,
-    LANG_COMMAND_TICKETPLAYERDEL        = 295,
-    LANG_COMMAND_TICKETDEL              = 296,
+    LANG_COMMAND_ALLTICKETCLOSED        = 294,
+    LANG_COMMAND_TICKETPLAYERCLOSE      = 295,
+    LANG_COMMAND_TICKETCLOSE            = 296,
     LANG_COMMAND_SPAWNDIST              = 297,
     LANG_COMMAND_SPAWNTIME              = 298,
     LANG_COMMAND_MODIFY_HONOR           = 299,
@@ -967,6 +972,16 @@ enum MangosStrings
     // Room for more Level 2              1509-1599 not used
 
     // FREE IDS                           1600-9999
+    //ChatSpy
+    LANG_CHATSPY_APEENDED               = 11600,
+    LANG_CHATSPY_CANCELLEDMASSIVE       = 11601,
+    LANG_CHATSPY_ALLRESET               = 11602,
+    LANG_CHATSPY_NOCHATSPY              = 11603,
+    LANG_CHATSPY_YOURCANCELLED          = 11604,
+    LANG_CHATSPY_SMBCANCELLED           = 11605,
+    LANG_CHATSPY_LISTOFSPYS             = 11606,
+    LANG_CHATSPY_TOTAL                  = 11607,
+    LANG_CHATSPY_ONESPYSANOTHER         = 11608,
 
     // Broadcaster
     LANG_AUTO_BROADCAST                 = 1300,

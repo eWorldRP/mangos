@@ -690,6 +690,9 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
 
     switch(spellproto->Id)
     {
+//patch Recently Bandaged
+        case 11196:
+//
         case 37675:                                         // Chaos Blast
         case 42786:                                         // Echo Of Ymiron
         case 56266:                                         // Vortex
@@ -712,6 +715,14 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 39288:                                         // Kargath's Executioner
         case 39289:                                         // Kargath's Executioner
         case 39290:                                         // Kargath's Executioner
+// patch powering up - dark/light essence
+        case 67590:                                         // Powering up
+        case 67602:                                         // Powering up
+        case 67603:                                         // Powering up
+        case 67604:                                         // Powering up
+        case 65686:                                         // Light Essence
+        case 65684:                                         // Dark Essence
+//
             return false;
         case 552:                                           // Abolish Disease
         case 12042:                                         // Arcane Power
@@ -729,6 +740,17 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 64343:                                         // Impact
         case 64844:                                         // Divine Hymn
         case 64904:                                         // Hymn of Hope
+// patch hack di alcuen spell
+        case 1008:                                          // Amplify Magic - Rank 1
+        case 8455:                                          // Amplify Magic - Rank 2
+        case 10169:                                         // Amplify Magic - Rank 3
+        case 10170:                                         // Amplify Magic - Rank 4
+        case 27130:                                         // Amplify Magic - Rank 5
+        case 33946:                                         // Amplify Magic - Rank 6
+        case 43017:                                         // Amplify Magic - Rank 7
+        case 61716:                                         // Rabbit Costume
+        case 61734:                                         // Noblegarden Bunny
+//
         case 67369:                                         // Grunty Focus
         case 67398:                                         // Zergling Periodic Effect
             return true;
@@ -991,6 +1013,11 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
                     }
                     break;
                 }
+// patch spell arcane overload (malygos)
+                case SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN:
+                    if (spellproto->Id == 56438)            // Arcane Overload (Malygos)
+                        return true;
+//
                 default:
                     break;
             }
@@ -2005,6 +2032,21 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
     if(spellId_1 == spellId_2)
         return false;
 
+// patch essence of gossamer & devotion aura
+    if ((spellId_1 == 60218 && spellInfo_2->IsFitToFamily(SPELLFAMILY_PALADIN, UI64LIT(0x40))) ||
+            (spellId_2 == 60218 && spellInfo_1->IsFitToFamily(SPELLFAMILY_PALADIN, UI64LIT(0x40))) )
+        return false;
+//
+// patch berserker! & Frenzied Regeneration
+    if ( (spellId_1 == 60196 && spellId_2 == 22842) || (spellId_2 == 60196 && spellId_1 == 22842) )
+        return false;
+//
+// patch scorch (Ignis) & Immolate
+    if ( (spellId_1 == 62546 && spellInfo_2->IsFitToFamily(SPELLFAMILY_WARLOCK, UI64LIT(0x4)))
+        || (spellId_2 == 62546 && spellInfo_1->IsFitToFamily(SPELLFAMILY_WARLOCK, UI64LIT(0x4))))
+        return false;
+//
+
     // Specific spell family spells
     // also some SpellIconID exceptions related to late checks (isModifier)
     switch(spellInfo_1->SpellFamilyName)
@@ -2037,6 +2079,17 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                     return true;
             }
 
+// patch anub'arak spells (Pursuing Spikes stack)
+            // Pursuing Spikes Ground Aura and Spike Auras
+            if (spellInfo_2->Id == 65921)
+                if (spellInfo_1->Id >= 65920 && spellInfo_1->Id <= 65923)
+                    return false;
+
+            if (spellInfo_1->Id == 65921)
+                if (spellInfo_2->Id >= 65920 && spellInfo_2->Id <= 65923)
+                    return false;
+//
+
             break;
         }
         case SPELLFAMILY_WARLOCK:
@@ -2057,6 +2110,12 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                 // Defensive/Berserker/Battle stance aura can not stack (needed for dummy auras)
                 if (spellInfo_1->SpellFamilyFlags.test<CF_WARRIOR_STANCES>() && spellInfo_2->SpellFamilyFlags.test<CF_WARRIOR_STANCES>())
                     return true;
+
+// patch Enrage & Wrecking Crew
+                // Enrage and Wrecking Crew
+                if (spellInfo_1->SpellIconID == 95 && spellInfo_2->SpellIconID == 95)
+                    return true;
+//
             }
             break;
         case SPELLFAMILY_DRUID:
@@ -2338,6 +2397,7 @@ SpellEntry const* SpellMgr::SelectAuraRankForLevel(SpellEntry const* spellInfo, 
             break;
 
         // if found appropriate level
+        // partial Playerbot mod: fix for core bug (commit 073cdd0e...)
         if (level + 10 >= nextSpellInfo->spellLevel)
             return nextSpellInfo;
 
@@ -4126,6 +4186,11 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
             // Freezing Trap & Freezing Arrow & Wyvern Sting
             if  (spellproto->SpellIconID == 180 || spellproto->SpellIconID == 1721)
                 return DIMINISHING_DISORIENT;
+// patch Hunter's Mark diminishing
+            // Hunter's Mark
+            if (spellproto->SpellFamilyFlags & UI64LIT(0x400))
+                return DIMINISHING_LIMITONLY;
+//
             break;
         }
         case SPELLFAMILY_PALADIN:
@@ -4200,7 +4265,11 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
     if (mechanic & ((1<<(MECHANIC_SLEEP-1))|(1<<(MECHANIC_FREEZE-1))))
         return DIMINISHING_FREEZE_SLEEP;
     if (mechanic & ((1<<(MECHANIC_KNOCKOUT-1))|(1<<(MECHANIC_POLYMORPH-1))|(1<<(MECHANIC_SAPPED-1))))
-        return DIMINISHING_DISORIENT;
+// patch Rabbit Costume
+        //return DIMINISHING_DISORIENT;
+        if (spellproto->Id != 61716)
+            return DIMINISHING_DISORIENT;
+//
     if (mechanic & (1<<(MECHANIC_ROOT-1)))
         return triggered ? DIMINISHING_TRIGGER_ROOT : DIMINISHING_CONTROL_ROOT;
     if (mechanic & ((1<<(MECHANIC_FEAR-1))|(1<<(MECHANIC_CHARM-1))|(1<<(MECHANIC_TURN-1))))
@@ -4246,6 +4315,10 @@ int32 GetDiminishingReturnsLimitDuration(DiminishingGroup group, SpellEntry cons
             // Wyvern Sting
             if (spellproto->SpellFamilyFlags.test<CF_HUNTER_WYVERN_STING2>())
                 return 6000;
+// patch hunter's mark diminishing
+            if (spellproto->SpellFamilyFlags.test<CF_HUNTER_HUNTERS_MARK>())
+                return 120000;
+//
             break;
         }
         case SPELLFAMILY_PALADIN:

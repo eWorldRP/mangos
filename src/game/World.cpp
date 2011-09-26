@@ -23,6 +23,7 @@
 #include "World.h"
 #include "Database/DatabaseEnv.h"
 #include "Config/Config.h"
+#include "playerbot/config.h"
 #include "Platform/Define.h"
 #include "SystemConfig.h"
 #include "Log.h"
@@ -68,6 +69,9 @@
 #include "CreatureLinkingMgr.h"
 #include "LFGMgr.h"
 #include "WardenDataStorage.h"
+// patch annunci irc
+#include "mangchat/IRCClient.h"
+//
 
 INSTANTIATE_SINGLETON_1( World );
 
@@ -83,6 +87,7 @@ float World::m_MaxVisibleDistanceInFlight     = DEFAULT_VISIBILITY_DISTANCE;
 float World::m_VisibleUnitGreyDistance        = 0;
 float World::m_VisibleObjectGreyDistance      = 0;
 
+extern Config botConfig;
 float  World::m_relocation_lower_limit_sq     = 10.f * 10.f;
 uint32 World::m_relocation_ai_notify_delay    = 1000u;
 
@@ -599,7 +604,7 @@ void World::LoadConfigSettings(bool reload)
 
     setConfigMinMax(CONFIG_UINT32_RAF_MAXGRANTLEVEL, "RAF.MaxGrantLevel", 60, 1, 80);
     setConfigMinMax(CONFIG_UINT32_RAF_MAXREFERALS, "RAF.MaxReferals", 5, 0, 15);
-    setConfigMinMax(CONFIG_UINT32_RAF_MAXREFERERS, "RAF.MaxReferers", 5, 0, 15);
+    setConfigMinMax(CONFIG_UINT32_RAF_MAXREFERERS, "RAF.MaxReferers", 5, 0, 40);
     setConfig(CONFIG_FLOAT_RATE_RAF_XP, "Rate.RAF.XP", 3.0f);
     setConfig(CONFIG_FLOAT_RATE_RAF_LEVELPERLEVEL, "Rate.RAF.XP", 0.5f);
 
@@ -663,6 +668,9 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_UINT32_GM_LEVEL_IN_GM_LIST,  "GM.InGMList.Level",  SEC_ADMINISTRATOR);
     setConfig(CONFIG_UINT32_GM_LEVEL_IN_WHO_LIST, "GM.InWhoList.Level", SEC_ADMINISTRATOR);
     setConfig(CONFIG_BOOL_GM_LOG_TRADE,           "GM.LogTrade", false);
+// Patch TradeLog
+    setConfig(CONFIG_LOG_TRADE,                   "CharLogTrade", true);  
+//
 
     setConfigMinMax(CONFIG_UINT32_START_GM_LEVEL, "GM.StartLevel", 1, getConfig(CONFIG_UINT32_START_PLAYER_LEVEL), MAX_LEVEL);
     setConfig(CONFIG_BOOL_GM_LOWER_SECURITY, "GM.LowerSecurity", false);
@@ -795,6 +803,9 @@ void World::LoadConfigSettings(bool reload)
     setConfigMin(CONFIG_INT32_ARENA_STARTPERSONALRATING,               "Arena.StartPersonalRating", -1, -1);
     setConfig(CONFIG_UINT32_LOSERNOCHANGE,                             "Arena.LoserNoChange", 0);
     setConfig(CONFIG_UINT32_LOSERHALFCHANGE,                           "Arena.LoserHalfChange", 0);
+// patch first arena rating max range
+    setConfig(CONFIG_UINT32_FIRST_RATING_MAX_RANGE,                    "Arena.FirstRatingMaxRange", 1000);
+//
 
     setConfigMinMax(CONFIG_UINT32_ARENA_AURAS_DURATION,                "Arena.RemoveAurasWithDurationLess", 30, 0, 60);
 
@@ -1239,7 +1250,12 @@ void World::SetInitialWorldSettings()
 
     sLog.outString( "Loading Spell disabled..." );
     sObjectMgr.LoadSpellDisabledEntrys();
-
+    
+// patch sanctuary area-zone-map
+    sLog.outString( "Loading Custom Sanctuaries..." );
+    sObjectMgr.LoadCustomSanctuary();
+//
+ 
     sLog.outString( "Loading Loot Tables..." );
     sLog.outString();
     LoadLootTables();
@@ -1473,7 +1489,15 @@ void World::SetInitialWorldSettings()
     // Delete all characters which have been deleted X days before
     Player::DeleteOldCharacters();
 
-    sLog.outString("Starting Autobroadcast system by Xeross..." );
+    //Get playerbot configuration file
+    if (!botConfig.SetSource(_PLAYERBOT_CONFIG))
+        sLog.outError("Playerbot: Unable to open configuration file. Database will be unaccessible. Configuration values will use default.");
+    else
+        sLog.outString("Playerbot: Using configuration file %s",_PLAYERBOT_CONFIG);
+
+    //Check playerbot config file version
+    if (botConfig.GetIntDefault("ConfVersion", 0) != PLAYERBOT_CONF_VERSION)
+        sLog.outError("Playerbot: Configuration file version doesn't match expected version. Some config variables may be wrong or missing.");
 
     sLog.outString("Initialize AuctionHouseBot...");
     sAuctionBot.Initialize();
@@ -2015,6 +2039,10 @@ void World::ShutdownMsg(bool show, Player* player)
         ServerMessageType msgid = (m_ShutdownMask & SHUTDOWN_MASK_RESTART) ? SERVER_MSG_RESTART_TIME : SERVER_MSG_SHUTDOWN_TIME;
 
         SendServerMessage(msgid,str.c_str(),player);
+// patch annunci irc
+        std::string channel = "#" + sIRC._irc_chan[sIRC.anchn];
+        sIRC.Send_IRC_Channel(channel, sIRC.MakeMsg("\00304,08\037/!\\\037\017\00304 Server shutdown in %s \00304,08\037/!\\\037\017 ", "%s", str.c_str()), true);
+//
         DEBUG_LOG("Server is %s in %s",(m_ShutdownMask & SHUTDOWN_MASK_RESTART ? "restart" : "shutting down"),str.c_str());
     }
 }
@@ -2032,7 +2060,11 @@ void World::ShutdownCancel()
     m_ShutdownTimer = 0;
     m_ExitCode = SHUTDOWN_EXIT_CODE;                       // to default value
     SendServerMessage(msgid);
-
+// patch annunci irc
+    std::string channel = "#" + sIRC._irc_chan[sIRC.anchn];
+    std::string str = "";
+    sIRC.Send_IRC_Channel(channel, sIRC.MakeMsg("\00304,08\037/!\\\037\017\00304 Server shutdown canceled %s\00304,08\037/!\\\037\017 ", "%s", str.c_str()), true);
+//
     DEBUG_LOG("Server %s cancelled.",(m_ShutdownMask & SHUTDOWN_MASK_RESTART ? "restart" : "shutdown"));
 }
 

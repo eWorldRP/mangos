@@ -761,6 +761,86 @@ namespace MaNGOS
             GameObjectEntryInPosRangeCheck(GameObjectEntryInPosRangeCheck const&);
     };
 
+// patch nuovi gridsearchers
+    class GameObjectInRangeCheck
+    {
+        public:
+            GameObjectInRangeCheck(WorldObject const* _obj, float _x, float _y, float _z, float _range):
+              i_obj(_obj), x(_x), y(_y), z(_z), range(_range) {}
+
+            WorldObject const& GetFocusObject() const { return *i_obj; }
+
+            bool operator() (GameObject* go)
+            {
+                return go->IsInRange(x, y, z, range);
+            }
+
+        private:
+            WorldObject const* i_obj;
+            float x, y, z, range;
+
+            // prevent cloning this object
+            GameObjectInRangeCheck(GameObjectInRangeCheck const&);
+    };
+
+    class AnyGameObjectInPointRangeCheck
+    {
+        public:
+            AnyGameObjectInPointRangeCheck(WorldObject const* obj, float posX, float posY, float posZ, float range) 
+                : i_obj(obj), x(posX), y(posY), z(posZ), i_range(range) {}
+            WorldObject const& GetFocusObject() const { return *i_obj; }
+            bool operator()(GameObject* g)
+            {
+                if(g && g->GetDistance(x, y, z) < i_range)
+                    return true;
+
+                return false;
+            }
+        private:
+            WorldObject const* i_obj;
+            float x, y, z;
+            float i_range;
+    };
+
+    class AnyWithAuraInRange
+    {
+        public:
+            AnyWithAuraInRange(Unit const* obj, float range, uint32 spellid) 
+                : i_obj(obj), i_range(range), i_spell(spellid) {}
+            WorldObject const& GetFocusObject() const { return *i_obj; }
+            bool operator()(Unit* u)
+            {
+                if(u->isAlive() && i_obj->IsWithinDistInMap(u, i_range) && u->HasAura(i_spell))
+                    return true;
+
+                return false;
+            }
+        private:
+            Unit const* i_obj;
+            float i_range;
+            uint32 i_spell;
+    };
+
+    class AnyUnitInPointRangeCheck
+    {
+        public:
+            AnyUnitInPointRangeCheck(WorldObject const* obj, float posX, float posY, float posZ, float range) 
+                : i_obj(obj), x(posX), y(posY), z(posZ), i_range(range) {}
+            WorldObject const& GetFocusObject() const { return *i_obj; }
+            bool operator()(Unit* u)
+            {
+                if(u->isAlive() && u->GetDistance(x, y, z) < i_range)
+                    return true;
+
+                return false;
+            }
+        private:
+            WorldObject const* i_obj;
+            float x, y, z;
+            float i_range;
+    };
+//
+
     // Unit checks
 
     class MostHPMissingInRangeCheck
@@ -1186,25 +1266,23 @@ namespace MaNGOS
             NearestCorpseInObjectRangeCheck(NearestCorpseInObjectRangeCheck const&);
     };
 
-    class GameObjectInRangeCheck
+    class AllCreaturesOfEntryInRange
     {
         public:
-            GameObjectInRangeCheck(WorldObject const* _obj, float _x, float _y, float _z, float _range):
-              i_obj(_obj), x(_x), y(_y), z(_z), range(_range) {}
-
-            WorldObject const& GetFocusObject() const { return *i_obj; }
-
-            bool operator() (GameObject* go)
+            AllCreaturesOfEntryInRange(const WorldObject* pObject, uint32 uiEntry, float fMaxRange) : m_pObject(pObject), m_uiEntry(uiEntry), m_fRange(fMaxRange) {}
+            WorldObject const& GetFocusObject() const { return *m_pObject; }
+            bool operator() (Unit* pUnit)
             {
-                return go->IsInRange(x, y, z, range);
+                if (pUnit->GetEntry() == m_uiEntry && m_pObject->IsWithinDist(pUnit,m_fRange,false))
+                    return true;
+              
+                return false;
             }
 
         private:
-            WorldObject const* i_obj;
-            float x, y, z, range;
-
-            // prevent cloning this object
-            GameObjectInRangeCheck(GameObjectInRangeCheck const&);
+            const WorldObject* m_pObject;
+            uint32 m_uiEntry;
+            float m_fRange;
     };
 
     class AllGameObjectsWithEntryInRange

@@ -494,6 +494,13 @@ void Map::Update(const uint32 &t_diff)
         //lets update mobs/objects in ALL visible cells around player!
         CellArea area = Cell::CalculateCellArea(plr->GetPositionX(), plr->GetPositionY(), GetVisibilityDistance());
 
+// patch achievement Hardboiled
+        //hackfix for Noblegarden Achievement "Hardboiled"
+        if(sGameEventMgr.IsActiveHoliday(HOLIDAY_NOBLEGARDEN) && plr->GetAreaId() == 543 && (plr->HasAura(61716) || plr->HasAura(61734)))
+            if(!plr->isMoving() && !plr->HasAura(61719))
+                plr->CastSpell(plr,61719,true);
+//
+
         for(uint32 x = area.low_bound.x_coord; x <= area.high_bound.x_coord; ++x)
         {
             for(uint32 y = area.low_bound.y_coord; y <= area.high_bound.y_coord; ++y)
@@ -1319,11 +1326,12 @@ bool DungeonMap::Add(Player *player)
                 GetPersistanceState()->GetMapId(), GetPersistanceState()->GetInstanceId(),
                 GetPersistanceState()->GetDifficulty(), GetPersistanceState()->GetPlayerCount(),
                 GetPersistanceState()->GetGroupCount(), GetPersistanceState()->CanReset());
-            //MANGOS_ASSERT(false);
+
+            sLog.outError("Player %s (%d), removing from group and repop at graveyard to avoid crash", player->GetName(), player->GetGUIDLow());
             player->RemoveFromGroup();
             player->RepopAtGraveyard();
-            player->GetSession()->KickPlayer();
             return false;
+
         }
     }
     else
@@ -1373,10 +1381,10 @@ bool DungeonMap::Add(Player *player)
                         sLog.outError("GroupBind save players: %d, group count: %d", groupBind->state->GetPlayerCount(), groupBind->state->GetGroupCount());
                     else
                         sLog.outError("GroupBind save NULL");
-                    //MANGOS_ASSERT(false);
+
+                    sLog.outError("Player %s (%d), removing from group and repop at graveyard to avoid crash", player->GetName(), player->GetGUIDLow());
                     player->RemoveFromGroup();
                     player->RepopAtGraveyard();
-                    player->GetSession()->KickPlayer();
                     return false;
                 }
                 // if the group/leader is permanently bound to the instance

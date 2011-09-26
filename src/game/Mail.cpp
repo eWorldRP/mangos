@@ -41,6 +41,14 @@
  */
 MailSender::MailSender( Object* sender, MailStationery stationery ) : m_stationery(stationery)
 {
+// patch anticrash - mail from console
+    if (!sender) // mail sended from console
+    {
+        m_messageType = MAIL_NORMAL;
+        m_senderId = 0;
+        return;
+    }
+//
     switch(sender->GetTypeId())
     {
         case TYPEID_UNIT:

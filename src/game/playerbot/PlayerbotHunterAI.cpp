@@ -109,7 +109,6 @@ void PlayerbotHunterAI::DoNextCombatManeuver(Unit *pTarget)
     // ------- Non Duel combat ----------
 
     // Hunter
-    ai->SetInFront(pTarget);
     Player *m_bot = GetPlayerBot();
     Unit* pVictim = pTarget->getVictim();
 
@@ -136,7 +135,7 @@ void PlayerbotHunterAI::DoNextCombatManeuver(Unit *pTarget)
     //ai->TellMaster( "Berserking." );
 
     // check if ranged combat is possible (set m_rangedCombat and switch auras
-    float dist = m_bot->GetDistance(pTarget);
+    float dist = m_bot->GetCombatDistance(pTarget);
     if ((dist <= ATTACK_DISTANCE || !m_bot->GetUInt32Value(PLAYER_AMMO_ID)) && m_rangedCombat)
     {
         // switch to melee combat (target in melee range, out of ammo)
@@ -355,7 +354,7 @@ void PlayerbotHunterAI::DoNonCombatActions()
 
                     if (pet->HaveInDiet(pItemProto)) // is pItem in pets diet
                     {
-                        //sLog.outDebug("Food for pet: %s",pItemProto->Name1);
+                        // DEBUG_LOG ("[PlayerbotHunterAI]: DoNonCombatActions - Food for pet: %s",pItemProto->Name1);
                         caster->CastSpell(caster, 51284, true); // pet feed visual
                         uint32 count = 1; // number of items used
                         int32 benefit = pet->GetCurrentFoodBenefitLevel(pItemProto->ItemLevel); // nutritional value of food
@@ -383,7 +382,7 @@ void PlayerbotHunterAI::DoNonCombatActions()
 
                             if (pet->HaveInDiet(pItemProto)) // is pItem in pets diet
                             {
-                                //sLog.outDebug("Food for pet: %s",pItemProto->Name1);
+                                // DEBUG_LOG ("[PlayerbotHunterAI]: DoNonCombatActions - Food for pet: %s",pItemProto->Name1);
                                 caster->CastSpell(caster, 51284, true); // pet feed visual
                                 uint32 count = 1; // number of items used
                                 int32 benefit = pet->GetCurrentFoodBenefitLevel(pItemProto->ItemLevel); // nutritional value of food

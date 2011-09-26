@@ -47,6 +47,8 @@ Channel::Channel(const std::string& name, uint32 channel_id)
     }
     else                                                    // it's custom channel
     {
+        m_announce = false;                                 // no join/leave announces
+
         m_flags |= CHANNEL_FLAG_CUSTOM;
     }
 }
@@ -569,6 +571,11 @@ void Channel::Say(ObjectGuid p, const char *what, uint32 lang)
     }
     else
     {
+        // ChatSpy
+        for(PlayerList::iterator itr = m_players.begin(); itr != m_players.end(); ++itr)
+            if(Player* pl = sObjectMgr.GetPlayer(itr->first))
+                pl->HandleChatSpyMessage(what, CHAT_MSG_CHANNEL, lang, plr, GetName());
+
         uint32 messageLength = strlen(what) + 1;
 
         WorldPacket data(SMSG_MESSAGECHAT, 1+4+8+4+m_name.size()+1+8+4+messageLength+1);

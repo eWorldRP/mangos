@@ -486,8 +486,10 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandleReloadSpellScriptsCommand(char* args);
         bool HandleReloadSpellTargetPositionCommand(char* args);
         bool HandleReloadSpellThreatsCommand(char* args);
-        bool HandleReloadSpellPetAurasCommand(char* args);
-
+        bool HandleReloadSpellPetAurasCommand(char* args);     
+// patch sanctuary area-zone-map
+        bool HandleReloadCustomSanctuaryCommand(char* args);
+//
         bool HandleReloadSpellDisabledCommand(char* args);
         bool HandleReloadAntiCheatCommand(char* args);
 
@@ -602,7 +604,7 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandleMailBoxCommand(char* args);
 
         bool HandleTicketCommand(char* args);
-        bool HandleDelTicketCommand(char* args);
+        bool HandleCloseTicketCommand(char* args);
         bool HandleMaxSkillCommand(char* args);
         bool HandleSetSkillCommand(char* args);
         bool HandleRespawnCommand(char* args);
@@ -615,6 +617,9 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandlePlayerbotCommand(char* args);
         bool HandleQuitCommand(char* args);
         bool HandleIRCpmCommand(char* args);
+// patch nameannounce
+        bool HandleNameAnnounceCommand(char* args);
+//
 
         bool HandleMmapPathCommand(char* args);
         bool HandleMmapLocCommand(char* args);
@@ -625,6 +630,12 @@ class MANGOS_DLL_SPEC ChatHandler
 
         //! Development Commands
         bool HandleSaveAllCommand(char* args);
+
+        // ChatSpy
+        bool HandleChatSpyResetCommand(char * args);
+        bool HandleChatSpyCancelCommand(char * args);
+        bool HandleChatSpySetCommand(char * args);
+        bool HandleChatSpyStatusCommand(char * args);
 
         Player*   getSelectedPlayer();
         Creature* getSelectedCreature();
@@ -755,7 +766,7 @@ class CliHandler : public ChatHandler
         Print* m_print;
 };
 
-
+char const *fmtstring( char const *format, ... );
 
 
 #endif

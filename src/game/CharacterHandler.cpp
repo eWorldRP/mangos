@@ -40,7 +40,6 @@
 #include "Language.h"
 #include "mangchat/IRCClient.h"
 
-
 // Playerbot mod:
 #include "playerbot/PlayerbotMgr.h"
 
@@ -161,6 +160,7 @@ class CharacterHandler
             // The bot's WorldSession is owned by the bot's Player object
             // The bot's WorldSession is deleted by PlayerbotMgr::LogoutPlayerBot
             WorldSession *botSession = new WorldSession(lqh->GetAccountId(), NULL, SEC_PLAYER, masterSession->Expansion(), 0, masterSession->GetSessionDbcLocale());
+
             botSession->m_Address = "bot";
             botSession->HandlePlayerLogin(lqh); // will delete lqh
             masterSession->GetPlayer()->GetPlayerbotMgr()->OnBotLogin(botSession->GetPlayer());
@@ -252,6 +252,7 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
             {
                 case ALLIANCE: disabled = mask & (1 << 0); break;
                 case HORDE:    disabled = mask & (1 << 1); break;
+                case TEAM_NONE: data << (uint8)CHAR_CREATE_DISABLED; SendPacket( &data ); return;
                 default: break;
             }
 
@@ -862,7 +863,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder *holder)
     delete holder;
 
     if(sIRC.ajoin == 1)
-        sIRC.AutoJoinChannel(pCurrChar);
+       sIRC.AutoJoinChannel(pCurrChar);
 }
 
 void WorldSession::HandleSetFactionAtWarOpcode( WorldPacket & recv_data )

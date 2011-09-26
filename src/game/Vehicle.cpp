@@ -225,6 +225,11 @@ bool VehicleKit::AddPassenger(Unit *passenger, int8 seatId)
         {
             m_pBase->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
 
+// patch vehicle faction on control
+            if(m_pBase->GetMap() && !m_pBase->GetMap()->IsBattleGround())
+                m_pBase->setFaction(passenger->getFaction());
+//
+
             if (CharmInfo* charmInfo = m_pBase->InitCharmInfo(m_pBase))
             {
                 charmInfo->InitVehicleCreateSpells(seat->first);

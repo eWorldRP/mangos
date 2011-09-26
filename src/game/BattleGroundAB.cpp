@@ -193,6 +193,17 @@ void BattleGroundAB::RemovePlayer(Player * /*plr*/, ObjectGuid /*guid*/)
 
 }
 
+void BattleGroundAB::HandleKillPlayer(Player *player, Player *killer)
+{
+    if (GetStatus() != STATUS_IN_PROGRESS)
+        return;
+
+    if (killer->GetAreaId() == player->GetAreaId()) 
+        killer->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA);
+    
+    BattleGround::HandleKillPlayer(player, killer);
+}
+
 void BattleGroundAB::HandleAreaTrigger(Player *Source, uint32 Trigger)
 {
     switch(Trigger)
@@ -349,6 +360,10 @@ void BattleGroundAB::EventPlayerClickedOnFlag(Player *source, GameObject* target
     if (!(m_Nodes[node] == 0 || teamIndex == m_Nodes[node] % 2))
         return;
 
+    // not allow using banner if player has Hex aura
+    if (source->HasAura(51514))
+        return;
+
     source->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
     uint32 sound = 0;
 
@@ -470,9 +485,15 @@ void BattleGroundAB::Reset()
     }
 
     m_IsInformedNearVictory                 = false;
+// patch reward Call to Arms
+/*
     bool isBGWeekend = BattleGroundMgr::IsBGWeekend(GetTypeID());
     m_HonorTics = (isBGWeekend) ? BG_AB_ABBGWeekendHonorTicks : BG_AB_NotABBGWeekendHonorTicks;
     m_ReputationTics = (isBGWeekend) ? BG_AB_ABBGWeekendReputationTicks : BG_AB_NotABBGWeekendReputationTicks;
+*/
+    m_HonorTics = BG_AB_NotABBGWeekendHonorTicks;
+    m_ReputationTics = BG_AB_NotABBGWeekendReputationTicks;
+//
 
     for (uint8 i = 0; i < BG_AB_NODES_MAX; ++i)
     {
@@ -497,6 +518,10 @@ void BattleGroundAB::EndBattleGround(Team winner)
     //complete map_end rewards (even if no team wins)
     RewardHonorToTeam(GetBonusHonorFromKill(1), HORDE);
     RewardHonorToTeam(GetBonusHonorFromKill(1), ALLIANCE);
+
+    RewardXpToTeam(0, 0.8f, winner);
+    RewardXpToTeam(0, 0.8f, HORDE);
+    RewardXpToTeam(0, 0.8f, ALLIANCE);
 
     BattleGround::EndBattleGround(winner);
 }
@@ -550,9 +575,11 @@ void BattleGroundAB::UpdatePlayerScore(Player *Source, uint32 type, uint32 value
     {
         case SCORE_BASES_ASSAULTED:
             ((BattleGroundABScore*)itr->second)->BasesAssaulted += value;
+            Source->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE, AB_OBJECTIVE_ASSAULT_BASE);
             break;
         case SCORE_BASES_DEFENDED:
             ((BattleGroundABScore*)itr->second)->BasesDefended += value;
+            Source->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE, AB_OBJECTIVE_DEFEND_BASE);
             break;
         default:
             BattleGround::UpdatePlayerScore(Source,type,value);

@@ -158,6 +158,15 @@ void WorldSession::moveItems(Item* myItems[], Item* hisItems[])
                         myItems[i]->GetProto()->Name1, myItems[i]->GetEntry(), myItems[i]->GetCount(),
                         trader->GetName(), trader->GetSession()->GetAccountId());
                 }
+// Patch TradeLog
+                if ( _player->GetSession()->GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE) )
+                {
+                    sLog.outChar("Player %s (Account: %u) trade: %s (Entry: %d Count: %u) to player: %s (Account: %u)",
+                        _player->GetName(),_player->GetSession()->GetAccountId(),
+                        myItems[i]->GetProto()->Name1,myItems[i]->GetEntry(),myItems[i]->GetCount(),
+                        trader->GetName(),trader->GetSession()->GetAccountId());
+                }
+//
 
                 // store
                 if (myItems[i]->HasFlag(ITEM_FIELD_FLAGS, ITEM_DYNFLAG_BOP_TRADEABLE))
@@ -176,6 +185,15 @@ void WorldSession::moveItems(Item* myItems[], Item* hisItems[])
                         hisItems[i]->GetProto()->Name1, hisItems[i]->GetEntry(), hisItems[i]->GetCount(),
                         _player->GetName(), _player->GetSession()->GetAccountId());
                 }
+// Patch TradeLog
+                if (trader->GetSession()->GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE) )
+                {
+                    sLog.outChar("Player %s (Account: %u) trade: %s (Entry: %d Count: %u) to player: %s (Account: %u)",
+                        trader->GetName(),trader->GetSession()->GetAccountId(),
+                        hisItems[i]->GetProto()->Name1,hisItems[i]->GetEntry(),hisItems[i]->GetCount(),
+                        _player->GetName(),_player->GetSession()->GetAccountId());
+                }
+//
 
                 // store
                 if (hisItems[i]->HasFlag(ITEM_FIELD_FLAGS, ITEM_DYNFLAG_BOP_TRADEABLE))
@@ -469,6 +487,26 @@ void WorldSession::HandleAcceptTradeOpcode(WorldPacket& recvPacket)
                     _player->GetName(),_player->GetSession()->GetAccountId());
             }
         }
+
+// Patch TradeLog
+        if(sWorld.getConfig(CONFIG_LOG_TRADE))
+        {
+            if( _player->GetSession()->GetSecurity() == SEC_PLAYER && my_trade->GetMoney() > 0)
+            {
+                sLog.outChar("Player %s (Account: %u) give money (Amount: %u) to player: %s (Account: %u)",
+                    _player->GetName(),_player->GetSession()->GetAccountId(),
+                    my_trade->GetMoney(),
+                    trader->GetName(),trader->GetSession()->GetAccountId());
+            }
+            if (trader->GetSession()->GetSecurity() == SEC_PLAYER && his_trade->GetMoney() > 0)
+            {
+                sLog.outChar("Player %s (Account: %u) give money (Amount: %u) to player: %s (Account: %u)",
+                    trader->GetName(),trader->GetSession()->GetAccountId(),
+                    his_trade->GetMoney(),
+                    _player->GetName(),_player->GetSession()->GetAccountId());
+            }
+        }
+//
 
         // update money
         _player->ModifyMoney( -int32(my_trade->GetMoney()) );

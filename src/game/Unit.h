@@ -1462,6 +1462,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void SendSpellMiss(Unit *target, uint32 spellID, SpellMissInfo missInfo);
 
         void NearTeleportTo(float x, float y, float z, float orientation, bool casting = false);
+
         void MonsterMoveJump(float x, float y, float z, float o, float speed, float height, bool isKnockBack = false);
         // recommend use MonsterMove/MonsterMoveWithSpeed for most case that correctly work with movegens
         // if used additional args in ... part then floats must explicitly casted to double
@@ -1493,7 +1494,10 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         ObjectGuid const& GetOwnerGuid() const { return  GetGuidValue(UNIT_FIELD_SUMMONEDBY); }
         void SetOwnerGuid(ObjectGuid owner) { SetGuidValue(UNIT_FIELD_SUMMONEDBY, owner); }
-        ObjectGuid const& GetCreatorGuid() const;
+// patch anticrash
+//      ObjectGuid const& GetCreatorGuid() const;
+        ObjectGuid const GetCreatorGuid() const;
+//
         void SetCreatorGuid(ObjectGuid creator) { SetGuidValue(UNIT_FIELD_CREATEDBY, creator); }
         ObjectGuid const& GetPetGuid() const { return GetGuidValue(UNIT_FIELD_SUMMON); }
         void SetPetGuid(ObjectGuid pet) { SetGuidValue(UNIT_FIELD_SUMMON, pet); }
@@ -1827,6 +1831,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         float GetTotalAuraMultiplierByMiscValue(AuraType auratype, int32 misc_value) const;
         int32 GetMaxPositiveAuraModifierByMiscValue(AuraType auratype, int32 misc_value, bool nonStackingOnly = false) const;
         int32 GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_value, bool nonStackingOnly = false) const;
+
 
         // misc have plain value but we check it fit to provided values mask (mask & (1 << (misc-1)))
         float GetTotalAuraMultiplierByMiscValueForMask(AuraType auratype, uint32 mask) const;

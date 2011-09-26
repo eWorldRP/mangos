@@ -387,8 +387,9 @@ void WorldSession::LogoutPlayer(bool Save)
     if (_player)
     {
         // Playerbot mod: log out all player bots owned by this toon
-        if (GetPlayer()->GetPlayerbotMgr())
-            GetPlayer()->GetPlayerbotMgr()->LogoutAllBots();
+
+        if (_player->GetPlayerbotMgr())
+            _player->GetPlayerbotMgr()->LogoutAllBots();
 
         sLog.outChar("Account: %d (IP: %s) Logout Character:[%s] (guid: %u)", GetAccountId(), GetRemoteAddress().c_str(), _player->GetName() ,_player->GetGUIDLow());
 
@@ -573,7 +574,7 @@ void WorldSession::LogoutPlayer(bool Save)
 
         static SqlStatementID updChars;
 
-        // Playerbot mod: commented out above and do this one instead
+        // Playerbot mod: set for only character instead of accountid
         SqlStatement stmt = CharacterDatabase.CreateStatement(updChars, "UPDATE characters SET online = 0 WHERE guid = ?");
         stmt.PExecute(guid);
 

@@ -549,6 +549,11 @@ void Unit::RemoveSpellsCausingAura(AuraType auraType)
         if (!holder || holder->IsDeleted())
             continue;
 
+// patch no rimozione horror
+        if (auraType != SPELL_AURA_MOD_FEAR || !(*iter)->GetHolder()->HasMechanic(MECHANIC_HORROR))
+            continue;
+//
+
         toRemoveSpellList.insert(holder->GetId());
     }
 
@@ -1058,6 +1063,14 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
     else                                                    // if (health <= damage)
     {
         DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE,"DealDamageAlive");
+
+//patch SW:D return damage
+        if (spellProto && spellProto->IsFitToFamily(SPELLFAMILY_PRIEST, UI64LIT(0x0000000200000000)))
+        {
+            int32 damage2 = cleanDamage && cleanDamage->damage ? cleanDamage->damage : damage ;
+            CastCustomSpell(this, 32409, &damage2, 0, 0, true);
+        }
+//
 
         if (pVictim->GetTypeId() == TYPEID_PLAYER)
             ((Player*)pVictim)->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_TOTAL_DAMAGE_RECEIVED, damage);
@@ -1710,6 +1723,11 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
             damageInfo->blocked_amount = damageInfo->target->GetShieldBlockValue();
 
             // Target has a chance to double the blocked amount if it has SPELL_AURA_MOD_BLOCK_CRIT_CHANCE
+//patch Critical Block
+            if (pVictim->GetTypeId() == TYPEID_PLAYER && roll_chance_f(((Player*)pVictim)->GetFloatValue(PLAYER_SHIELD_BLOCK_CRIT_PERCENTAGE)))
+                damageInfo->blocked_amount *= 2;
+            else
+//
             if (roll_chance_i(pVictim->GetTotalAuraModifier(SPELL_AURA_MOD_BLOCK_CRIT_CHANCE)))
                 damageInfo->blocked_amount *= 2;
 
@@ -1737,11 +1755,13 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
             float baseHighEnd = 1.2f;
             switch(getClass())                              // lowering base values for casters
             {
-                case CLASS_SHAMAN:
+//patch glancing blow
+//              case CLASS_SHAMAN:
                 case CLASS_PRIEST:
                 case CLASS_MAGE:
                 case CLASS_WARLOCK:
-                case CLASS_DRUID:
+//              case CLASS_DRUID:
+//
                     baseLowEnd  -= 0.7f;
                     baseHighEnd -= 0.3f;
                     break;
@@ -1752,6 +1772,12 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
             {
                 case CLASS_WARRIOR:
                 case CLASS_ROGUE:
+//patch glancing blow
+                case CLASS_DEATH_KNIGHT:
+                case CLASS_DRUID:
+                case CLASS_SHAMAN:
+                case CLASS_PALADIN:
+//
                     maxLowEnd = 0.91f;                      //If the attacker is a melee class then instead the lower value of 0.91
             }
 
@@ -2809,15 +2835,21 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst (const Unit *pVictim, WeaponAttack
     // bonus from skills is 0.04%
     int32    skillBonus  = 4 * ( attackerWeaponSkill - victimMaxSkillValueForLevel );
     int32    sum = 0, tmp = 0;
-    int32    roll = urand (0, 10000);
+//patch calcolo chance hit
+//  int32    roll = urand (0, 10000);
+    int32    roll = urand (1, 10000);
+//
 
     DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: skill bonus of %d for attacker", skillBonus);
     DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: rolled %d, miss %d, dodge %d, parry %d, block %d, crit %d",
         roll, miss_chance, dodge_chance, parry_chance, block_chance, crit_chance);
 
     tmp = miss_chance;
-
-    if (tmp > 0 && roll < (sum += tmp ))
+    
+//patch calcolo chance hit
+//  if (tmp > 0 && roll < (sum += tmp ))
+    if (tmp > 0 && roll <= (sum += tmp ))
+//
     {
         DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: MISS");
         return MELEE_HIT_MISS;
@@ -2852,7 +2884,10 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst (const Unit *pVictim, WeaponAttack
         tmp = dodge_chance;
         if (   (tmp > 0)                                        // check if unit _can_ dodge
             && ((tmp -= skillBonus) > 0)
-            && roll < (sum += tmp))
+//patch calcolo chance hit
+//          && roll < (sum += tmp))
+            && roll <= (sum += tmp))
+//
         {
             DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: DODGE <%d, %d)", sum-tmp, sum);
             return MELEE_HIT_DODGE;
@@ -2898,7 +2933,10 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst (const Unit *pVictim, WeaponAttack
 
         tmp = (10 + 2*(victimDefenseSkill - skill)) * 100;
         tmp = tmp > 4000 ? 4000 : tmp;
-        if (roll < (sum += tmp))
+//patch calcolo chance hit
+//      if (roll < (sum += tmp))
+        if (roll <= (sum += tmp))
+//
         {
             DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: GLANCING <%d, %d)", sum-4000, sum);
             return MELEE_HIT_GLANCING;
@@ -2914,7 +2952,10 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst (const Unit *pVictim, WeaponAttack
             tmp = block_chance;
             if (   (tmp > 0)                                    // check if unit _can_ block
                 && ((tmp -= skillBonus) > 0)
-                && (roll < (sum += tmp)))
+//patch calcolo chance hit
+//              && (roll < (sum += tmp)))
+                && (roll <= (sum += tmp)))
+//
             {
                 DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: BLOCK <%d, %d)", sum-tmp, sum);
                 return MELEE_HIT_BLOCK;
@@ -2924,8 +2965,11 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst (const Unit *pVictim, WeaponAttack
 
     // Critical chance
     tmp = crit_chance;
-
-    if (tmp > 0 && roll < (sum += tmp))
+    
+//patch calcolo chance hit
+//  if (tmp > 0 && roll < (sum += tmp))
+    if (tmp > 0 && roll <= (sum += tmp))
+//
     {
         DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: CRIT <%d, %d)", sum-tmp, sum);
         return MELEE_HIT_CRIT;
@@ -2949,7 +2993,10 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst (const Unit *pVictim, WeaponAttack
         {
             // add 2% chance per lacking skill point, min. is 15%
             tmp = tmp * 200 - 1500;
-            if (roll < (sum += tmp))
+//patch calcolo chance hit
+//          if (roll < (sum += tmp))
+            if (roll <= (sum += tmp))
+//
             {
                 DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: CRUSHING <%d, %d)", sum-tmp, sum);
                 return MELEE_HIT_CRUSHING;
@@ -3149,12 +3196,18 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     int32 skillDiff = attackerWeaponSkill - int32(pVictim->GetMaxSkillValueForLevel(this));
     int32 fullSkillDiff = attackerWeaponSkill - int32(pVictim->GetDefenseSkillValue(this));
 
-    uint32 roll = urand (0, 10000);
+//patch calcolo chance hit
+//  uint32 roll = urand (0, 10000);
+    uint32 roll = urand (1, 10000);
+//
 
     uint32 missChance = uint32(MeleeSpellMissChance(pVictim, attType, fullSkillDiff, spell)*100.0f);
     // Roll miss
     uint32 tmp = spell->AttributesEx3 & SPELL_ATTR_EX3_CANT_MISS ? 0 : missChance;
-    if (roll < tmp)
+//patch calcolo chance hit
+//  if (roll < tmp)
+    if (roll <= tmp)        
+//
         return SPELL_MISS_MISS;
 
     // Chance resist mechanic (select max value from every mechanic spell effect)
@@ -3172,7 +3225,10 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     }
     // Roll chance
     tmp += resist_mech;
-    if (roll < tmp)
+//patch calcolo chance hit
+//  if (roll < tmp)
+    if (roll <= tmp)
+//
         return SPELL_MISS_RESIST;
 
     bool canDodge = true;
@@ -3197,7 +3253,10 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
             //    deflect_chance = int32(deflect_chance * (pVictim->GetTotalAuraMultiplier(SPELL_AURA_MOD_PARRY_FROM_BEHIND_PERCENT) - 1);
 
             tmp += deflect_chance;
-            if (roll < tmp)
+//patch calcolo chance hit
+//          if (roll < tmp)
+            if (roll <= tmp)
+//
                 return SPELL_MISS_DEFLECT;
         }
         return SPELL_MISS_NONE;
@@ -3252,7 +3311,10 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
             dodgeChance = 0;
 
         tmp += dodgeChance;
-        if (roll < tmp)
+//patch calcolo chance hit
+//      if (roll < tmp)
+        if (roll <= tmp)
+//
             return SPELL_MISS_DODGE;
     }
 
@@ -3272,7 +3334,10 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
         //    parryChance = int32(parryChance * (pVictim->GetTotalAuraMultiplier(SPELL_AURA_MOD_PARRY_FROM_BEHIND_PERCENT) - 1));
 
         tmp += parryChance;
-        if (roll < tmp)
+//patch calcolo chance hit
+//      if (roll < tmp)
+        if (roll <= tmp)
+//
             return SPELL_MISS_PARRY;
     }
 
@@ -3349,14 +3414,20 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     if (HitChance > 10000) HitChance = 10000;
 
     int32 tmp = spell->AttributesEx3 & SPELL_ATTR_EX3_CANT_MISS ? 0 : (10000 - HitChance);
-
-    int32 rand = irand(0,10000);
+    
+//patch calcolo chance hit
+//  int32 rand= irand(0, 10000);
+    int32 rand= irand(1, 10000);
+//
 
     // Chaos Bolt cannot be deflected
     if (spell->SpellFamilyName == SPELLFAMILY_WARLOCK && spell->SpellIconID == 3178)
         return SPELL_MISS_NONE;
-
-    if (rand < tmp)
+    
+//patch calcolo chance hit
+//  if (rand < tmp)
+    if (rand <= tmp)
+//
         return SPELL_MISS_MISS;
 
     bool from_behind = !pVictim->HasInArc(M_PI_F,this);
@@ -3370,7 +3441,10 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
         //    deflect_chance = int32(deflect_chance * (pVictim->GetTotalAuraMultiplier(SPELL_AURA_MOD_PARRY_FROM_BEHIND_PERCENT)) - 1);
 
         tmp += deflect_chance;
-        if (rand < tmp)
+//patch calcolo chance hit
+//      if (rand < tmp)
+        if (rand <= tmp)
+//
             return SPELL_MISS_DEFLECT;
     }
 
@@ -3531,7 +3605,10 @@ float Unit::GetUnitDodgeChance() const
             return 0.0f;
         else
         {
-            float dodge = 5.0f;
+//patch dodge chance mob
+//          float dodge=5.0f;
+            float dodge = 6.5f;
+//
             dodge += GetTotalAuraModifier(SPELL_AURA_MOD_DODGE_PERCENT);
             return dodge > 0.0f ? dodge : 0.0f;
         }
@@ -3562,7 +3639,10 @@ float Unit::GetUnitParryChance() const
     {
         if (GetCreatureType() == CREATURE_TYPE_HUMANOID)
         {
-            chance = 5.0f;
+//Patch chance parry mob
+//          chance = 5.0f;
+            chance = 14.0f;
+//
             chance += GetTotalAuraModifier(SPELL_AURA_MOD_PARRY_PERCENT);
         }
     }
@@ -3593,7 +3673,10 @@ float Unit::GetUnitBlockChance() const
             return 0.0f;
         else
         {
-            float block = 5.0f;
+//Patch block chance mob
+//          float block = 5.0f;
+            float block = 6.5f;
+//
             block += GetTotalAuraModifier(SPELL_AURA_MOD_BLOCK_PERCENT);
             return block > 0.0f ? block : 0.0f;
         }
@@ -3625,7 +3708,10 @@ float Unit::GetUnitCriticalChance(WeaponAttackType attackType, const Unit *pVict
     }
     else
     {
-        crit = 5.0f;
+//Patch crit chance mob
+//      crit = 5.0f;
+        crit = 5.6f;
+//
         crit += GetTotalAuraModifier(SPELL_AURA_MOD_CRIT_PERCENT);
     }
 
@@ -7707,7 +7793,7 @@ uint32 Unit::SpellCriticalDamageBonus(SpellEntry const *spellProto, uint32 damag
         critPctDamageMod += pVictim->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_ATTACKER_SPELL_CRIT_DAMAGE,GetSpellSchoolMask(spellProto));
 
     critPctDamageMod += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_CRIT_DAMAGE_BONUS, GetSpellSchoolMask(spellProto));
-
+    
     uint32 creatureTypeMask = pVictim->GetCreatureTypeMask();
     critPctDamageMod += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_CRIT_PERCENT_VERSUS, creatureTypeMask);
 
@@ -8026,6 +8112,11 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo)
 
 bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex index) const
 {
+// patch saronite vapors
+    // Saronite Vapors mana gain spell
+    if (spellInfo->Id == 63337)
+        return false;
+//
     //If m_immuneToEffect type contain this effect type, IMMUNE effect.
     uint32 effect = spellInfo->Effect[index];
     SpellImmuneList const& effectList = m_spellImmune[IMMUNITY_EFFECT];
@@ -8376,6 +8467,7 @@ uint32 Unit::MeleeDamageBonusTaken(Unit *pCaster, uint32 pdamage,WeaponAttackTyp
     // differentiate for weapon damage based spells
     bool isWeaponDamageBasedSpell = !(spellProto && (damagetype == DOT || IsSpellHaveEffect(spellProto, SPELL_EFFECT_SCHOOL_DAMAGE)));
     uint32 schoolMask       = spellProto ? spellProto->SchoolMask : GetMeleeDamageSchoolMask();
+
     uint32 mechanicMask     = spellProto ? GetAllSpellMechanicMask(spellProto) : 0;
 
     // Shred and Maul also have bonus as MECHANIC_BLEED damages
@@ -8914,6 +9006,22 @@ bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
     {
         invisible = false;
     }
+    
+// patch invisibilità tra horde e ally nella zona starting DK
+    // Buff in DK starting location provides invisibility for each faction players
+    if(GetMapId() == 609)
+    {
+        if(GetTypeId() == TYPEID_PLAYER && u->GetTypeId() == TYPEID_PLAYER)
+        {
+            if(((Player*)this)->GetTeam() == ((Player*)u)->GetTeam())
+                invisible = false;
+            else
+                invisible = true;
+        }
+        else
+            invisible = false;
+    }
+//
 
     // special cases for always overwrite invisibility/stealth
     if (invisible || m_Visibility == VISIBILITY_GROUP_STEALTH)
@@ -9125,6 +9233,24 @@ void Unit::UpdateSpeed(UnitMoveType mtype, bool forced, float ratio)
     int32 main_speed_mod  = 0;
     float stack_bonus     = 1.0f;
     float non_stack_bonus = 1.0f;
+
+// patch dash remove on change form
+    //dash check
+    if(getClass() == CLASS_DRUID && mtype == MOVE_RUN)
+    {
+        AuraList const& mSpeed = GetAurasByType(SPELL_AURA_MOD_INCREASE_SPEED);
+        for(AuraList::const_iterator i = mSpeed.begin(); i != mSpeed.end(); ++i)
+        {
+            if ((*i)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_DRUID && (*i)->GetSpellProto()->SpellIconID == 959)
+            {
+              if(GetShapeshiftForm() != FORM_CAT)
+                  (*i)->SetModifier((*i)->GetModifier()->m_auraname, 0, (*i)->GetModifier()->periodictime, (*i)->GetModifier()->m_miscvalue);
+              else
+                  (*i)->SetModifier((*i)->GetModifier()->m_auraname, ((*i)->GetSpellProto()->EffectBasePoints[0]+1), (*i)->GetModifier()->periodictime, (*i)->GetModifier()->m_miscvalue);
+            } 
+        }
+    }
+//
 
     switch(mtype)
     {
@@ -12437,7 +12563,10 @@ void Unit::OnRelocated()
     ScheduleAINotify(World::GetRelocationAINotifyDelay());
 }
 
-ObjectGuid const& Unit::GetCreatorGuid() const
+// patch anticrash
+//ObjectGuid const& Unit::GetCreatorGuid() const
+ObjectGuid const Unit::GetCreatorGuid() const
+//
 {
     switch(GetObjectGuid().GetHigh())
     {

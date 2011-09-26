@@ -1083,6 +1083,8 @@ void WorldSession::HandleItemNameQueryOpcode(WorldPacket & recv_data)
         SendPacket(&data);
         return;
     }
+// patch antispam inutile sui log
+/*
     else
     {
         // listed in dbc or not expected to exist unknown item
@@ -1091,6 +1093,8 @@ void WorldSession::HandleItemNameQueryOpcode(WorldPacket & recv_data)
         else
             sLog.outError("WORLD: CMSG_ITEM_NAME_QUERY for item %u failed (unknown item, not listed in Item.dbc)", itemid);
     }
+*/
+//
 }
 
 void WorldSession::HandleWrapItemOpcode(WorldPacket& recv_data)

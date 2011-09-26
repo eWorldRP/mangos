@@ -263,6 +263,14 @@ void Log::Initialize()
     dberLogfile = openLogFile("DBErrorLogFile",NULL,"a");
     raLogfile = openLogFile("RaLogFile",NULL,"a");
     worldLogfile = openLogFile("WorldLogFile","WorldLogTimestamp","a");
+    
+// patch arena Log
+    arenaLogfile = openLogFile("ArenaLogFile","ArenaLogTimestamp","a");
+//
+
+// patch custom Log
+    customLogfile = openLogFile("CustomLogFile","CustomLogTimestamp","a");
+//
 
     // Main log file settings
     m_includeTime  = sConfig.GetBoolDefault("LogTime", false);
@@ -856,3 +864,41 @@ void error_db_log(const char * str, ...)
 
     sLog.outErrorDb("%s", buf);
 }
+
+// patch arena Log
+void Log::outArena(const char * str, ... )
+{
+    if (!str)
+        return;
+
+    if (arenaLogfile)
+    {
+        va_list ap;
+        outTimestamp(arenaLogfile);
+        va_start(ap, str);
+        vfprintf(arenaLogfile, str, ap);
+        fprintf(arenaLogfile, "\n" );
+        va_end(ap);
+        fflush(arenaLogfile);
+    }
+}
+//
+
+// patch custom log
+void Log::outCustom(const char * str, ... )
+{
+    if (!str)
+        return;
+
+    if (customLogfile)
+    {
+        va_list ap;
+        outTimestamp(customLogfile);
+        va_start(ap, str);
+        vfprintf(customLogfile, str, ap);
+        fprintf(customLogfile, "\n" );
+        va_end(ap);
+        fflush(customLogfile);
+    }
+}
+//

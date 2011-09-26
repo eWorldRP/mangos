@@ -1644,7 +1644,7 @@ void Creature::ForcedDespawn(uint32 timeMSToDespawn)
 
     RemoveCorpse();
     SetHealth(0);                                           // just for nice GM-mode view
-
+    
     if (IsTemporarySummon())
          ((TemporarySummon*)this)->UnSummon();
 }

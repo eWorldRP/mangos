@@ -212,18 +212,44 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
         return;
     }
 
+    uint32 rc_account = receive
+        ? receive->GetSession()->GetAccountId()
+        : sObjectMgr.GetPlayerAccountIdByGUID(rc);
+
+    // check for account bound 
+    bool m_bAccountBound = false;
+
+    if (pl->GetSession()->GetAccountId() == rc_account && !(money > 0))
+    {
+        for (uint8 i = 0; i < items_count; ++i)
+        {
+            Item* item = pl->GetItemByGuid(itemGuids[i]);
+
+            if (item)
+            {
+                if (item->IsBoundAccountWide())
+                    m_bAccountBound = true;
+                else
+                {
+                    m_bAccountBound = false;
+                    break;
+                }
+            }
+        }
+    }
+
     // check the receiver's Faction...
-    if (!sWorld.getConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_INTERACTION_MAIL) && pl->GetTeam() != rc_team && GetSecurity() == SEC_PLAYER)
+    if (!m_bAccountBound && !sWorld.getConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_INTERACTION_MAIL) && pl->GetTeam() != rc_team && GetSecurity() == SEC_PLAYER)
     {
         pl->SendMailResult(0, MAIL_SEND, MAIL_ERR_NOT_YOUR_TEAM);
         return;
     }
 
-    uint32 rc_account = receive
-        ? receive->GetSession()->GetAccountId()
-        : sObjectMgr.GetPlayerAccountIdByGUID(rc);
-
     Item* items[MAX_MAIL_ITEMS];
+    
+//Patch BoA multifazione
+    bool m_isBoA=true;
+//
 
     for(uint8 i = 0; i < items_count; ++i)
     {
@@ -253,6 +279,11 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
             pl->SendMailResult(0, MAIL_SEND, MAIL_ERR_EQUIP_ERROR, EQUIP_ERR_ARTEFACTS_ONLY_FOR_OWN_CHARACTERS);
             return;
         }
+        
+//Patch BoA multifazione
+        //keep trace for BoA item
+        m_isBoA=(m_isBoA && item->IsBoundAccountWide() && item->IsSoulBound() && pl->GetSession()->GetAccountId() == rc_account);
+//
 
         if ((item->GetProto()->Flags & ITEM_FLAG_CONJURED) || item->GetUInt32Value(ITEM_FIELD_DURATION))
         {
@@ -268,6 +299,19 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
 
         items[i] = item;
     }
+    
+//Patch BoA multifazione
+    //checking if mail contents are BoA-like...
+    if (money > 0 || items_count==0)
+        m_isBoA = false;
+    
+    // check the receiver's Faction...
+    if (!m_isBoA && !sWorld.getConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_INTERACTION_MAIL) && pl->GetTeam() != rc_team && GetSecurity() == SEC_PLAYER)
+    {
+        pl->SendMailResult(0, MAIL_SEND, MAIL_ERR_NOT_YOUR_TEAM);
+        return;
+    }
+//
 
     pl->SendMailResult(0, MAIL_SEND, MAIL_OK);
 
@@ -290,6 +334,14 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
                     sLog.outCommand(GetAccountId(), "GM %s (Account: %u) mail item: %s (Entry: %u Count: %u) to player: %s (Account: %u)",
                         GetPlayerName(), GetAccountId(), item->GetProto()->Name1, item->GetEntry(), item->GetCount(), receiver.c_str(), rc_account);
                 }
+                
+// Patch TradeLog 
+                if( GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE))
+                {
+                    sLog.outChar("Player %s (Account: %u) mail item: %s (Entry: %u Count: %u) to player: %s (Account: %u)",
+                        GetPlayerName(), GetAccountId(), item->GetProto()->Name1, item->GetEntry(), item->GetCount(), receiver.c_str(), rc_account);
+                }
+//
 
                 pl->MoveItemFromInventory(items[i]->GetBagSlot(), item->GetSlot(), true);
                 CharacterDatabase.BeginTransaction();
@@ -311,6 +363,13 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
             sLog.outCommand(GetAccountId(),"GM %s (Account: %u) mail money: %u to player: %s (Account: %u)",
                 GetPlayerName(), GetAccountId(), money, receiver.c_str(), rc_account);
         }
+// Patch TradeLog
+        if(money > 0 &&  GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE))
+        {
+            sLog.outChar("Player %s (Account: %u) mail money: %u to player: %s (Account: %u)",
+                GetPlayerName(), GetAccountId(), money, receiver.c_str(), rc_account);
+        }
+//         
     }
 
     // If theres is an item, there is a one hour delivery delay if sent to another account's character.
@@ -525,7 +584,31 @@ void WorldSession::HandleMailTakeItem(WorldPacket & recv_data )
                 sLog.outCommand(GetAccountId(), "GM %s (Account: %u) receive mail item: %s (Entry: %u Count: %u) and send COD money: %u to player: %s (Account: %u)",
                     GetPlayerName(), GetAccountId(), it->GetProto()->Name1, it->GetEntry(), it->GetCount(), m->COD, sender_name.c_str(), sender_accId);
             }
-            else if (!sender)
+// Patch TradeLog
+            if (GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE) )
+            {
+                std::string sender_name;
+                if (sender)
+                {
+                    sender_accId = sender->GetSession()->GetAccountId();
+                    sender_name = sender->GetName();
+                }
+                else
+                {
+                    // can be calculated early
+                    sender_accId = sObjectMgr.GetPlayerAccountIdByGUID(sender_guid);
+
+                    if(!sObjectMgr.GetPlayerNameByGUID(sender_guid, sender_name))
+                        sender_name = sObjectMgr.GetMangosStringForDBCLocale(LANG_UNKNOWN);
+                }
+                sLog.outChar("Player %s (Account: %u) receive mail item: %s (Entry: %u Count: %u) and send COD money: %u to player: %s (Account: %u)",
+                    GetPlayerName(),GetAccountId(),it->GetProto()->Name1,it->GetEntry(),it->GetCount(),m->COD,sender_name.c_str(),sender_accId);
+            }
+/*
+            else if(!sender)
+*/
+            if (!sender)
+//
                 sender_accId = sObjectMgr.GetPlayerAccountIdByGUID(sender_guid);
 
             // check player existence

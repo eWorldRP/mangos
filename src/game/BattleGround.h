@@ -76,6 +76,9 @@ enum BattleGroundMarks
     SPELL_AB_MARK_WINNER            = 24953,                // not create marks now
     SPELL_AV_MARK_LOSER             = 24954,                // not create marks now
     SPELL_AV_MARK_WINNER            = 24955,                // not create marks now
+// patch marchi wintergrasp a fine bg
+    ITEM_WG_MARK_OF_HONOR           = 43589,
+//
 
     SPELL_WG_MARK_VICTORY           = 24955,                // honor + mark
     SPELL_WG_MARK_DEFEAT            = 58494,                // honor + mark
@@ -89,6 +92,7 @@ enum BattleGroundMarksCount
 
 enum BattleGroundSpells
 {
+    SPELL_SPIRIT_HEAL_CHANNEL       = 22011,
     SPELL_ARENA_PREPARATION         = 32727,                // use this one, 32728 not correct
     SPELL_ALLIANCE_GOLD_FLAG        = 32724,
     SPELL_ALLIANCE_GREEN_FLAG       = 32725,
@@ -276,6 +280,17 @@ enum GroupJoinBattlegroundResult
     ERR_IN_NON_RANDOM_BG                    = -15,          // Can't queue for Random Battleground while in another Battleground queue.
 };
 
+// patch reward Call to Arms
+enum RewardCallToArms
+{
+    CTA_REWARD_WIN = 15, // honorable kills
+    CTA_REWARD_LOSE = 5,
+    CTA_REWARD_WIN_FIRST = 15,
+    CTA_EXTRA_ARENA_POINTS = 25,
+    CTA_DAILY_QUEST = 40610,
+};
+//
+
 class BattleGroundScore
 {
     public:
@@ -458,6 +473,10 @@ class BattleGround
         void SendRewardMarkByMail(Player *plr,uint32 mark, uint32 count);
         void RewardItem(Player *plr, uint32 item_id, uint32 count);
         void RewardQuestComplete(Player *plr);
+//patch reward Call to Arms
+        void RewardQuestEventToTeam(uint32 questid, Team TeamID);
+        void RewardArenaPointsIfTeamAndQuestActive(uint32 ap, uint32 questid, Team TeamID);
+//
         void RewardSpellCast(Player *plr, uint32 spell_id);
         void UpdateWorldState(uint32 Field, uint32 Value);
         void UpdateWorldStateForPlayer(uint32 Field, uint32 Value, Player *Source);

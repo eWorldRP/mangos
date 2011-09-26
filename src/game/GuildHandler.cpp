@@ -910,6 +910,14 @@ void WorldSession::HandleGuildBankDepositMoney( WorldPacket & recv_data )
         sLog.outCommand(_player->GetSession()->GetAccountId(),"GM %s (Account: %u) deposit money (Amount: %u) to guild bank (Guild ID %u)",
             _player->GetName(),_player->GetSession()->GetAccountId(),money,GuildId);
     }
+    
+// Patch TradeLog 
+    if(_player->GetSession()->GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE))
+    {
+        sLog.outChar("Player %s (Account: %u) deposit money (Amount: %u) to guild bank (Guild ID %u)",
+            _player->GetName(),_player->GetSession()->GetAccountId(),money,GuildId);
+    }
+//
 
     // log
     pGuild->LogBankEvent(GUILD_BANK_LOG_DEPOSIT_MONEY, uint8(0), GetPlayer()->GetGUIDLow(), money);

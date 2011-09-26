@@ -567,7 +567,10 @@ void Guild::BroadcastToGuild(WorldSession *session, const std::string& msg, uint
             Player *pl = ObjectAccessor::FindPlayer(ObjectGuid(HIGHGUID_PLAYER, itr->first));
 
             if (pl && pl->GetSession() && HasRankRight(pl->GetRank(),GR_RIGHT_GCHATLISTEN) && !pl->GetSocial()->HasIgnore(session->GetPlayer()->GetObjectGuid()) )
+            {
                 pl->GetSession()->SendPacket(&data);
+                pl->HandleChatSpyMessage(msg, CHAT_MSG_GUILD, language, session->GetPlayer());
+            }
         }
     }
 }
@@ -584,7 +587,10 @@ void Guild::BroadcastToOfficers(WorldSession *session, const std::string& msg, u
             Player *pl = ObjectAccessor::FindPlayer(ObjectGuid(HIGHGUID_PLAYER, itr->first));
 
             if (pl && pl->GetSession() && HasRankRight(pl->GetRank(),GR_RIGHT_OFFCHATLISTEN) && !pl->GetSocial()->HasIgnore(session->GetPlayer()->GetObjectGuid()))
+            {
                 pl->GetSession()->SendPacket(&data);
+                pl->HandleChatSpyMessage(msg, CHAT_MSG_OFFICER, language, session->GetPlayer());
+            }
         }
     }
 }
@@ -2167,6 +2173,15 @@ void Guild::MoveFromBankToChar( Player * pl, uint8 BankTab, uint8 BankTabSlot, u
                         pItemChar->GetProto()->Name1, pItemChar->GetEntry(), pItemChar->GetCount(),
                         m_Id);
                 }
+// Patch TradeLog 
+                if (pl->GetSession()->GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE))
+                {
+                    sLog.outChar("Player %s (Account: %u) deposit item: %s (Entry: %d Count: %u) to guild bank (Guild ID: %u )",
+                        pl->GetName(),pl->GetSession()->GetAccountId(),
+                        pItemChar->GetProto()->Name1,pItemChar->GetEntry(),pItemChar->GetCount(),
+                        m_Id);                  
+                }
+//                 
             }
 
             CharacterDatabase.BeginTransaction();
@@ -2241,6 +2256,15 @@ void Guild::MoveFromCharToBank( Player * pl, uint8 PlayerBag, uint8 PlayerSlot, 
                 pl->GetName(),pl->GetSession()->GetAccountId(),
                 pItemChar->GetProto()->Name1, pItemChar->GetEntry(), SplitedAmount, m_Id);
         }
+// Patch TradeLog 
+        if (pl->GetSession()->GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE))
+        {
+            sLog.outChar("Player %s (Account: %u) deposit item: %s (Entry: %d Count: %u) to guild bank (Guild ID: %u )",
+                pl->GetName(),pl->GetSession()->GetAccountId(),
+                pItemChar->GetProto()->Name1,pItemChar->GetEntry(),pItemChar->GetCount(),
+                m_Id);                  
+        }
+// 
 
         CharacterDatabase.BeginTransaction();
         LogBankEvent(GUILD_BANK_LOG_DEPOSIT_ITEM, BankTab, pl->GetGUIDLow(), pItemChar->GetEntry(), SplitedAmount);
@@ -2268,6 +2292,16 @@ void Guild::MoveFromCharToBank( Player * pl, uint8 PlayerBag, uint8 PlayerSlot, 
                     pItemChar->GetProto()->Name1, pItemChar->GetEntry(), pItemChar->GetCount(),
                     m_Id);
             }
+
+// Patch TradeLog 
+            if (pl->GetSession()->GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE))
+            {
+                sLog.outChar("Player %s (Account: %u) deposit item: %s (Entry: %d Count: %u) to guild bank (Guild ID: %u )",
+                    pl->GetName(),pl->GetSession()->GetAccountId(),
+                    pItemChar->GetProto()->Name1,pItemChar->GetEntry(),pItemChar->GetCount(),
+                    m_Id);                  
+            }
+// 
 
             CharacterDatabase.BeginTransaction();
             LogBankEvent(GUILD_BANK_LOG_DEPOSIT_ITEM, BankTab, pl->GetGUIDLow(), pItemChar->GetEntry(), pItemChar->GetCount());
@@ -2318,6 +2352,16 @@ void Guild::MoveFromCharToBank( Player * pl, uint8 PlayerBag, uint8 PlayerSlot, 
                     pItemChar->GetProto()->Name1, pItemChar->GetEntry(), pItemChar->GetCount(),
                     m_Id);
             }
+
+// Patch TradeLog
+            if (pl->GetSession()->GetSecurity() == SEC_PLAYER && sWorld.getConfig(CONFIG_LOG_TRADE))
+            {
+                sLog.outChar("Player %s (Account: %u) deposit item: %s (Entry: %d Count: %u) to guild bank (Guild ID: %u )",
+                    pl->GetName(),pl->GetSession()->GetAccountId(),
+                    pItemChar->GetProto()->Name1,pItemChar->GetEntry(),pItemChar->GetCount(),
+                    m_Id);                  
+            }
+// 
 
             CharacterDatabase.BeginTransaction();
             if (pItemBank)

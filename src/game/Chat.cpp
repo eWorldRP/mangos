@@ -608,6 +608,9 @@ ChatCommand * ChatHandler::getCommandTable()
         { "spell_target_position",       SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadSpellTargetPositionCommand,     "", NULL },
         { "spell_threats",               SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadSpellThreatsCommand,            "", NULL },
         { "spell_disabled",              SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadSpellDisabledCommand,           "", NULL },
+// patch sanctuary area-zone-map
+        { "custom_sanctuary",            SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadCustomSanctuaryCommand,         "", NULL },
+//
         { "anticheat",                   SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadAntiCheatCommand,               "", NULL },
 
         { NULL,                          0,                 false, NULL,                                                     "", NULL }
@@ -747,6 +750,15 @@ ChatCommand * ChatHandler::getCommandTable()
         { NULL,             0,                  false, NULL,                                           "", NULL }
     };
 
+    static ChatCommand chatspyCommandTable[] =
+    {
+        { "set",            SEC_ADMINISTRATOR,  false, &ChatHandler::HandleChatSpySetCommand,          "", NULL },
+        { "reset",          SEC_ADMINISTRATOR,  false, &ChatHandler::HandleChatSpyResetCommand,        "", NULL },
+        { "cancel",         SEC_ADMINISTRATOR,  false, &ChatHandler::HandleChatSpyCancelCommand,       "", NULL },
+        { "status",         SEC_ADMINISTRATOR,  false, &ChatHandler::HandleChatSpyStatusCommand,       "", NULL },
+        { NULL,             0,                  false, NULL,                                           "", NULL }
+    };
+
     static ChatCommand commandTable[] =
     {
         { "account",        SEC_PLAYER,         true,  NULL,                                           "", accountCommandTable  },
@@ -782,7 +794,10 @@ ChatCommand * ChatHandler::getCommandTable()
         { "aura",           SEC_ADMINISTRATOR,  false, &ChatHandler::HandleAuraCommand,                "", NULL },
         { "unaura",         SEC_ADMINISTRATOR,  false, &ChatHandler::HandleUnAuraCommand,              "", NULL },
         { "announce",       SEC_MODERATOR,      true,  &ChatHandler::HandleAnnounceCommand,            "", NULL },
-        { "notify",         SEC_MODERATOR,      true,  &ChatHandler::HandleNotifyCommand,              "", NULL },
+        { "notify",         SEC_MODERATOR,      true,  &ChatHandler::HandleNotifyCommand,                "", NULL },
+// patch nameannounce
+        { "nameannounce",   SEC_MODERATOR,      false, &ChatHandler::HandleNameAnnounceCommand,        "", NULL },
+//
         { "goname",         SEC_MODERATOR,      false, &ChatHandler::HandleGonameCommand,              "", NULL },
         { "namego",         SEC_MODERATOR,      false, &ChatHandler::HandleNamegoCommand,              "", NULL },
         { "groupgo",        SEC_MODERATOR,      false, &ChatHandler::HandleGroupgoCommand,             "", NULL },
@@ -821,7 +836,7 @@ ChatCommand * ChatHandler::getCommandTable()
         { "mailbox",        SEC_ADMINISTRATOR,  false, &ChatHandler::HandleMailBoxCommand,             "", NULL },
         { "wchange",        SEC_ADMINISTRATOR,  false, &ChatHandler::HandleChangeWeatherCommand,       "", NULL },
         { "ticket",         SEC_GAMEMASTER,     true,  &ChatHandler::HandleTicketCommand,              "", NULL },
-        { "delticket",      SEC_GAMEMASTER,     true,  &ChatHandler::HandleDelTicketCommand,           "", NULL },
+        { "closeticket",    SEC_GAMEMASTER,     true,  &ChatHandler::HandleCloseTicketCommand,         "", NULL },
         { "maxskill",       SEC_ADMINISTRATOR,  false, &ChatHandler::HandleMaxSkillCommand,            "", NULL },
         { "setskill",       SEC_ADMINISTRATOR,  false, &ChatHandler::HandleSetSkillCommand,            "", NULL },
         { "whispers",       SEC_MODERATOR,      false, &ChatHandler::HandleWhispersCommand,            "", NULL },
@@ -835,7 +850,7 @@ ChatCommand * ChatHandler::getCommandTable()
         { "cometome",       SEC_ADMINISTRATOR,  false, &ChatHandler::HandleComeToMeCommand,            "", NULL },
         { "damage",         SEC_ADMINISTRATOR,  false, &ChatHandler::HandleDamageCommand,              "", NULL },
         { "combatstop",     SEC_GAMEMASTER,     false, &ChatHandler::HandleCombatStopCommand,          "", NULL },
-        { "flusharenapoints",SEC_ADMINISTRATOR, false, &ChatHandler::HandleFlushArenaPointsCommand,    "", NULL },
+        { "flusharenapoints",SEC_ADMINISTRATOR, true,  &ChatHandler::HandleFlushArenaPointsCommand,    "", NULL },
         { "repairitems",    SEC_GAMEMASTER,     true,  &ChatHandler::HandleRepairitemsCommand,         "", NULL },
         { "stable",         SEC_ADMINISTRATOR,  false, &ChatHandler::HandleStableCommand,              "", NULL },
         { "waterwalk",      SEC_GAMEMASTER,     false, &ChatHandler::HandleWaterwalkCommand,           "", NULL },
@@ -843,8 +858,8 @@ ChatCommand * ChatHandler::getCommandTable()
         { "bot",            SEC_PLAYER,         false, &ChatHandler::HandlePlayerbotCommand,           "", NULL },
         { "quit",           SEC_CONSOLE,        true,  &ChatHandler::HandleQuitCommand,                "", NULL },
         { "ircpm",          SEC_PLAYER,         false, &ChatHandler::HandleIRCpmCommand,               "", NULL },
+        { "chatspy",        SEC_ADMINISTRATOR,  true,  NULL,                                           "", chatspyCommandTable },
         { "mmap",           SEC_GAMEMASTER,     false, NULL,                                           "", mmapCommandTable },
-
         { NULL,             0,                  false, NULL,                                           "", NULL }
     };
 
@@ -2850,6 +2865,39 @@ bool ChatHandler::ExtractUint32KeyFromLink(char** text, char const* linkType, ui
         return false;
 
     return ExtractUInt32(&arg, value);
+}
+
+char const *fmtstring( char const *format, ... )
+{
+    va_list        argptr;
+    #define    MAX_FMT_STRING    32000
+
+    static char        temp_buffer[MAX_FMT_STRING];
+    static char        string[MAX_FMT_STRING];
+    static int        index = 0;
+    char    *buf;
+    int len;
+
+    va_start(argptr, format);
+    vsnprintf(temp_buffer,MAX_FMT_STRING, format, argptr);
+    va_end(argptr);
+
+    len = strlen(temp_buffer);
+
+    if( len >= MAX_FMT_STRING )
+        return "ERROR";
+
+    if (len + index >= MAX_FMT_STRING-1)
+    {
+        index = 0;
+    }
+
+    buf = &string[index];
+    memcpy( buf, temp_buffer, len+1 );
+
+    index += len + 1;
+
+    return buf;
 }
 
 GameObject* ChatHandler::GetGameObjectWithGuid(uint32 lowguid,uint32 entry)

@@ -724,7 +724,13 @@ void Object::_SetCreateBits(UpdateMask *updateMask, Player* /*target*/) const
 
 void Object::SetInt32Value( uint16 index, int32 value )
 {
-    MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+    //MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+
+    if (index >= m_valuesCount)
+    {
+        PrintIndexError(index, true);
+        return;
+    }
 
     if (m_int32Values[ index ] != value)
     {
@@ -735,7 +741,13 @@ void Object::SetInt32Value( uint16 index, int32 value )
 
 void Object::SetUInt32Value( uint16 index, uint32 value )
 {
-    MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+    //MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+
+    if (index >= m_valuesCount)
+    {
+        PrintIndexError(index, true);
+        return;
+    }
 
     if (m_uint32Values[ index ] != value)
     {
@@ -746,7 +758,14 @@ void Object::SetUInt32Value( uint16 index, uint32 value )
 
 void Object::SetUInt64Value( uint16 index, const uint64 &value )
 {
-    MANGOS_ASSERT( index + 1 < m_valuesCount || PrintIndexError( index, true ) );
+    //MANGOS_ASSERT( index + 1 < m_valuesCount || PrintIndexError( index, true ) );
+
+    if (index >= m_valuesCount)
+    {
+        PrintIndexError(index, true);
+        return;
+    }
+
     if(*((uint64*)&(m_uint32Values[ index ])) != value)
     {
         m_uint32Values[ index ] = *((uint32*)&value);
@@ -757,7 +776,13 @@ void Object::SetUInt64Value( uint16 index, const uint64 &value )
 
 void Object::SetFloatValue( uint16 index, float value )
 {
-    MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+    //MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+
+    if (index >= m_valuesCount)
+    {
+        PrintIndexError(index, true);
+        return;
+    }
 
     if (m_floatValues[ index ] != value)
     {
@@ -768,7 +793,13 @@ void Object::SetFloatValue( uint16 index, float value )
 
 void Object::SetByteValue( uint16 index, uint8 offset, uint8 value )
 {
-    MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+    //MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+
+    if (index >= m_valuesCount)
+    {
+        PrintIndexError(index, true);
+        return;
+    }
 
     if (offset > 4)
     {
@@ -786,7 +817,13 @@ void Object::SetByteValue( uint16 index, uint8 offset, uint8 value )
 
 void Object::SetUInt16Value( uint16 index, uint8 offset, uint16 value )
 {
-    MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+    //MANGOS_ASSERT( index < m_valuesCount || PrintIndexError( index, true ) );
+
+    if (index >= m_valuesCount)
+    {
+        PrintIndexError(index, true);
+        return;
+    }
 
     if (offset > 2)
     {
@@ -1052,7 +1089,7 @@ void WorldObject::GetZoneAndAreaId(uint32& zoneid, uint32& areaid) const
 
 InstanceData* WorldObject::GetInstanceData() const
 {
-    return GetMap()->GetInstanceData();
+    return GetMap() ? GetMap()->GetInstanceData() : NULL;
 }
 
                                                             //slow
@@ -1178,6 +1215,11 @@ bool WorldObject::IsWithinLOSInMap(const WorldObject* obj) const
 
 bool WorldObject::IsWithinLOS(float ox, float oy, float oz) const
 {
+// patch no LOS in Eye of Eternity
+    if (GetMapId() == 616) // disable LOS in Eye of Eternity
+        return true;
+//
+
     float x,y,z;
     GetPosition(x,y,z);
     VMAP::IVMapManager *vMapManager = VMAP::VMapFactory::createOrGetVMapManager();
@@ -2153,6 +2195,19 @@ void Object::ForceValuesUpdateAtIndex(uint16 index)
     MarkForClientUpdate();
 }
 // Frozen Mod
+
+void WorldObject::GetCreatureListWithEntryInGrid(std::list<Creature*>& lList, uint32 uiEntry, float fMaxSearchRange)
+{
+    CellPair pair(MaNGOS::ComputeCellPair(this->GetPositionX(), this->GetPositionY()));
+    Cell cell(pair);
+    cell.SetNoCreate();
+
+    MaNGOS::AllCreaturesOfEntryInRange check(this, uiEntry, fMaxSearchRange);
+    MaNGOS::CreatureListSearcher<MaNGOS::AllCreaturesOfEntryInRange> searcher(lList, check);
+    TypeContainerVisitor<MaNGOS::CreatureListSearcher<MaNGOS::AllCreaturesOfEntryInRange>, GridTypeMapContainer> visitor(searcher);
+
+    GetMap()->Visit(cell, visitor);
+}
 
 bool WorldObject::PrintCoordinatesError(float x, float y, float z, char const* descr) const
 {
