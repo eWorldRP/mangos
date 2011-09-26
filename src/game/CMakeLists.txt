@@ -75,6 +75,10 @@ source_group("Movement"
     movement/util.cpp
 )
 
+source_group("MangChat"
+  REGULAR_EXPRESSION mangchat/.*
+)
+
 if(PCH)
   include_directories(${CMAKE_CURRENT_BINARY_DIR})
 endif()
@@ -102,6 +106,9 @@ if(NOT ACE_USE_EXTERNAL)
   add_dependencies(game ACE_Project)
 # add_dependencies(game ace)
 endif()
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mangchat/mangchat.conf.dist.in ${CMAKE_CURRENT_BINARY_DIR}/mangchat/mangchat.conf.dist)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/mangchat/mangchat.conf.dist DESTINATION ${CONF_DIR})
 
 # Generate precompiled header
 if(PCH)
