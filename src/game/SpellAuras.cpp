@@ -6104,6 +6104,95 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
                         caster->CastCustomSpell(target, 63278, 0, &(spell->EffectBasePoints[0]), 0, false, 0, 0, caster->GetObjectGuid() , spell);
                     return;
                 }
+                case 43310: // Ram Level - Neutral
+                case 42992: // Ram - Trot
+                case 42993: // Ram - Canter
+                case 42994: // Ram - Gallop
+                {
+                    Unit *caster = GetCaster();
+                    if (!caster)
+                        return;
+                    if (apply)
+                    {
+                        // Exhausted Ram
+                        if (caster->HasAura(43332))
+                            return;
+
+                        // Fatigue
+                        int32 mod = 0;
+                        switch (spell->Id)
+                        {
+                            case 43310: mod = -4; break;
+                            case 42992: mod = -2; break;
+                            case 42993: mod = 1; break;
+                            case 42994: mod = 5; break;
+                        }
+
+                        if (SpellAuraHolder* fatigue = caster->GetSpellAuraHolder(43052))
+                        {
+                            if (fatigue->ModStackAmount(mod))
+                                caster->RemoveAurasDueToSpell(43052);
+                            if (fatigue->GetStackAmount() >= 100)
+                            {
+                                caster->RemoveAurasDueToSpell(42924); // Giddyup!
+                                caster->RemoveAurasDueToSpell(43052); // Fatigue
+                                caster->RemoveAurasDueToSpell(GetId());
+                                caster->CastSpell(caster, 43310, true); // Ram Level - Neutral
+                                caster->CastSpell(caster, 43332, true); // Exhausted Ram
+                                return;
+                            }
+                        }
+
+                        SpellAuraHolder* holder = caster->GetSpellAuraHolder(spell->Id);
+                        // Quest credits
+                        if (holder->GetAuraApplyTime() > 8000)
+                        {
+                            if (((Player*)caster)->GetQuestStatus(11318) == QUEST_STATUS_INCOMPLETE || ((Player*)caster)->GetQuestStatus(11409) == QUEST_STATUS_INCOMPLETE)
+                            {
+                                switch (spell->Id)
+                                {
+                                case 42992: ((Player*)caster)->KilledMonsterCredit(24263, 0); break;
+                                case 42993: ((Player*)caster)->KilledMonsterCredit(24264, 0); break;
+                                case 42994: ((Player*)caster)->KilledMonsterCredit(24265, 0); break;
+                                }
+                            }
+                        }
+
+                        uint32 newSpeedAura;
+
+                        switch (spell->Id)
+                        {
+                            // check every 2 seconds
+                            case 43310: newSpeedAura = 43310; break;
+                            case 42992:
+                                if ((holder->GetAuraMaxDuration() - holder->GetAuraDuration()) > 2000)
+                                    newSpeedAura = 43310;
+                                else newSpeedAura = 42992;
+                                break;
+                            // check every second
+                            case 42993:
+                                if ((holder->GetAuraMaxDuration() - holder->GetAuraDuration()) > 1000)
+                                    newSpeedAura = 42992;
+                                else newSpeedAura = 42993;
+                                break;
+                            // check every half second
+                            case 42994:
+                                if ((holder->GetAuraMaxDuration() - holder->GetAuraDuration()) > 500)
+                                    newSpeedAura = 42993;
+                                else newSpeedAura = 42994;
+                                break;
+                        }
+
+                        // apply new speed if needed
+                        if (newSpeedAura != spell->Id)
+                        {
+                            caster->RemoveAurasDueToSpell(spell->Id);
+                            caster->CastSpell(caster, newSpeedAura, true);
+                        }
+                        return;
+                    }
+                    return;
+                }
             }
         }
         case SPELLFAMILY_ROGUE:
