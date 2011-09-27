@@ -666,7 +666,7 @@ int IRCCmd::GetLevel(std::string sName)
 
 int IRCCmd::AcctLevel(std::string plnme)
 {
-    uint64 guid = sObjectMgr.GetPlayerGUIDByName(plnme);
+    uint64 guid = sObjectMgr.GetPlayerGuidByName(plnme);
     uint32 account_id = 0;
     uint32 security = 0;
     account_id = sObjectMgr.GetPlayerAccountIdByGUID(guid);
@@ -875,9 +875,9 @@ void IRCClient::AHFunc(uint64 itmid, std::string itmnme, std::string plname)
 //        if(result)
 //       {
 //            delete result;
-//            uint64 guid = sObjectMgr.GetPlayerGUIDByName(player);
+//            uint64 guid = sObjectMgr.GetPlayerGuidByName(player);
 //            Player* plr = sObjectMgr.GetPlayer(guid);
-//            uint64 guid2 = sObjectMgr.GetPlayerGUIDByName(from);
+//            uint64 guid2 = sObjectMgr.GetPlayerGuidByName(from);
 //            Player* plr2 = sObjectMgr.GetPlayer(guid2);
 //            if(plr) sIRC.Send_WoW_Player(plr, "You Have Already Had A Trip To GM Island. There Is Only One Tele To GM Island Per Player, Please Donate If You Would like The .tele Command.");
 //            if(plr2) sIRC.Send_WoW_Player(plr2, "This Player Has Already Had Their Trip To GM Island. The Tele Has Been Canceled.");
