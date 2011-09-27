@@ -6128,7 +6128,7 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
                             case 42994: mod = 5; break;
                         }
 
-                        if (SpellAuraHolder* fatigue = caster->GetSpellAuraHolder(43052))
+                        if (SpellAuraHolderPtr fatigue = caster->GetSpellAuraHolder(43052))
                         {
                             if (fatigue->ModStackAmount(mod))
                                 caster->RemoveAurasDueToSpell(43052);
@@ -6143,7 +6143,7 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
                             }
                         }
 
-                        SpellAuraHolder* holder = caster->GetSpellAuraHolder(spell->Id);
+                        SpellAuraHolderPtr holder = caster->GetSpellAuraHolder(spell->Id);
                         // Quest credits
                         if (holder->GetAuraApplyTime() > 8000)
                         {
