@@ -7875,7 +7875,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 }
                 case 28374:                                 // Decimate (Gluth encounter)
                 {
-                    if (unitTarget && unitTarget != m_caster)
+                    if (unitTarget && unitTarget != m_caster && unitTarget != m_caster->getVictim())
                     {
                         if (unitTarget->GetHealthPercent() > 5.0f)
                             m_caster->CastSpell(unitTarget, 28375, true);
