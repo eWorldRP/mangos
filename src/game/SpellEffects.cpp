@@ -9506,6 +9506,46 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(unitTarget, 66747, true);
                     return;
                 }
+                case 67009:                                 // Nether Power (ToC25: Lord Jaraxxus)
+                {
+                    if (!unitTarget)
+                        return;
+
+                    unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
+                    return;
+                }
+                case 67398:                                 // Zergling Periodic Effect (Called by Zergling Passive)
+                {
+                    if (!unitTarget || !unitTarget->isAlive())
+                        return;
+                                                            // Only usable on Grunty companion
+                    Unit* pGrunty = unitTarget->GetMiniPet();
+                    if (pGrunty && pGrunty->GetEntry() == 34694)
+                    {
+                        if (m_caster->IsWithinDist(pGrunty, 2.0f))
+                            m_caster->CastSpell(pGrunty, 67400, true); //zerg attack
+                        else
+                        {
+                            m_caster->CastSpell(pGrunty, 67397, true); // zerg rush dummy aura
+                            m_caster->GetMotionMaster()->MoveFollow(pGrunty,0,0);
+                        }
+                    }
+                    return;
+                }
+                case 67369:                                 // Grunty Periodic usable only on Zergling companion
+                {
+                    if (!unitTarget)
+                        return;
+
+                    Unit* pZerg = unitTarget->GetMiniPet(); // Only usable on Grunty companion
+                    if (pZerg && pZerg->isAlive() && pZerg->GetEntry() == 11327)
+                    {
+                        m_caster->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
+                        m_caster->SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_ATTACK_UNARMED);
+                        return;
+                    }
+                    return;
+                }
 // patch powering up
                 case 67590: // 10 N
                 case 67602: // 10 H
@@ -9557,39 +9597,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     }
 
                     break;
-                }
-//
-                case 67398:                                 // Zergling Periodic Effect (Called by Zergling Passive)
-                {
-                    if (!unitTarget || !unitTarget->isAlive())
-                        return;
-                                                            // Only usable on Grunty companion
-                    Unit* pGrunty = unitTarget->GetMiniPet();
-                    if (pGrunty && pGrunty->GetEntry() == 34694)
-                    {
-                        if (m_caster->IsWithinDist(pGrunty, 2.0f))
-                            m_caster->CastSpell(pGrunty, 67400, true); //zerg attack
-                        else
-                        {
-                            m_caster->CastSpell(pGrunty, 67397, true); // zerg rush dummy aura
-                            m_caster->GetMotionMaster()->MoveFollow(pGrunty,0,0);
-                        }
-                    }
-                    return;
-                }
-                case 67369:                                 // Grunty Periodic usable only on Zergling companion
-                {
-                    if (!unitTarget)
-                        return;
-
-                    Unit* pZerg = unitTarget->GetMiniPet(); // Only usable on Grunty companion
-                    if (pZerg && pZerg->isAlive() && pZerg->GetEntry() == 11327)
-                    {
-                        m_caster->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
-                        m_caster->SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_ATTACK_UNARMED);
-                        return;
-                    }
-                    return;
                 }
                 case 68861:                                 // Consume Soul (ICC FoS: Bronjahm)
                 {
