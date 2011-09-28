@@ -7020,7 +7020,10 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor)
             if (!cVictim->IsRacialLeader())
                 return false;
 
-            honor = 1000;/*2000*/                           // ??? need more info
+// patch nerf honor da creature racial leader
+//          honor = 2000;                                   // ??? need more info
+            honor = 750;                                   // ??? need more info
+//
             victim_rank = 19;                               // HK: Leader
 
             if (groupsize > 1)
