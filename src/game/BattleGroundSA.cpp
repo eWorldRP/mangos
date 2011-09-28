@@ -81,14 +81,6 @@ BattleGroundSA::BattleGroundSA()
     TimeST2Round = 120000;
     Round_timer = 0;
     Phase = 1;
-// patch sota anti-abuse
-    GateRoomAncientShrineDamaged = false;
-    GateGreenEmeraldDamaged = false;
-    GateBlueSaphireDamaged = false;
-    GateMauveAmethystDamaged = false;
-    GateRedSunDamaged = false;
-    GateYellowMoonDamaged = false;
-//
 }
 
 BattleGroundSA::~BattleGroundSA()
@@ -678,13 +670,6 @@ void BattleGroundSA::EventPlayerDamageGO(Player *player, GameObject* target_obj,
             switch (eventId)
             {
                 case 21630:
-// patch sota anti-abuse
-                    if (!GateRoomAncientShrineDamaged)
-                    {
-                        SendMessageSA(player, BG_SA_ATTACK, _GatesName(target_obj));
-                        GateRoomAncientShrineDamaged = true;
-                    }
-//
                     break;
                 case 19836:
                     SendWarningToAllSA(NULL, NULL, TEAM_NONE, true, type);
@@ -706,13 +691,6 @@ void BattleGroundSA::EventPlayerDamageGO(Player *player, GameObject* target_obj,
             switch (eventId)
             {
                 case 21630:
-// patch sota anti-abuse
-                    if (!GateGreenEmeraldDamaged)
-                    {
-                        SendMessageSA(player, BG_SA_ATTACK, _GatesName(target_obj));
-                        GateGreenEmeraldDamaged = true;
-                    }
-//
                     break;
                 case 19041:
                     SendWarningToAllSA(NULL, NULL, TEAM_NONE, true, type);
@@ -732,14 +710,7 @@ void BattleGroundSA::EventPlayerDamageGO(Player *player, GameObject* target_obj,
             type = BG_SA_GO_GATES_T_BLUE_SAPHIRE;
             switch (eventId)
             {
-// patch sota anti-abuse
                case 21630:
-                    if (!GateBlueSaphireDamaged)
-                    {
-                        SendMessageSA(player, BG_SA_ATTACK, _GatesName(target_obj));
-                        GateBlueSaphireDamaged = true;
-                    }
-//
                     break;
                 case 19040:
                     SendWarningToAllSA(NULL, NULL, TEAM_NONE, true, type);
@@ -759,14 +730,7 @@ void BattleGroundSA::EventPlayerDamageGO(Player *player, GameObject* target_obj,
             type = BG_SA_GO_GATES_T_MAUVE_AMETHYST;
             switch (eventId)
             {
-// patch sota anti-abuse
                 case 21630:
-                    if (!GateMauveAmethystDamaged)
-                    {
-                        SendMessageSA(player, BG_SA_ATTACK, _GatesName(target_obj));
-                        GateMauveAmethystDamaged = true;
-                    }
-//
                     break;
                 case 19043:
                     SendWarningToAllSA(NULL, NULL, TEAM_NONE, true, type);
@@ -787,13 +751,6 @@ void BattleGroundSA::EventPlayerDamageGO(Player *player, GameObject* target_obj,
             switch (eventId)
             {
                 case 21630:
-// patch sota anti-abuse
-                    if (!GateRedSunDamaged)
-                    {
-                        SendMessageSA(player, BG_SA_ATTACK, _GatesName(target_obj));
-                        GateRedSunDamaged = true;
-                    }
-//
                     break;
                 case 19042:
                     SendWarningToAllSA(NULL, NULL, TEAM_NONE, true, type);
@@ -814,13 +771,6 @@ void BattleGroundSA::EventPlayerDamageGO(Player *player, GameObject* target_obj,
             switch (eventId)
             {
                 case 21630:
-// patch sota anti-abuse
-                    if (!GateYellowMoonDamaged)
-                    {
-                        SendMessageSA(player, BG_SA_ATTACK, _GatesName(target_obj));
-                        GateYellowMoonDamaged = true;
-                    }
-//
                     break;
                 case 19044:
                     SendWarningToAllSA(NULL, NULL, TEAM_NONE, true, type);
