@@ -5135,6 +5135,9 @@ bool PlayerbotAI::AddQuest(const uint32 entry, WorldObject * questgiver)
         TellMaster(out.str());
         return true;
     }
+// patch anticrash
+    return false;
+//
 }
 
 void PlayerbotAI::ListAuctions()
