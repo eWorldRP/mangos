@@ -30,8 +30,12 @@
 #define BG_AV_CAPTIME                       240000          // 4 minutes
 #define BG_AV_SNOWFALL_FIRSTCAP             300000          // 5 minutes but i also have seen 4:05
 
-#define BG_AV_SCORE_INITIAL_POINTS          600
-#define BG_AV_SCORE_NEAR_LOSE               120
+// patch calibrazione alterac valley
+//#define BG_AV_SCORE_INITIAL_POINTS          600
+//#define BG_AV_SCORE_NEAR_LOSE               120
+#define BG_AV_SCORE_INITIAL_POINTS          300
+#define BG_AV_SCORE_NEAR_LOSE               60
+//
 
 // description: KILL = bonushonor kill one kill is 21honor worth at 0
 // REP reputation, RES = ressources a team will lose
@@ -42,12 +46,18 @@
 #define BG_AV_KILL_CAPTAIN                  3
 #define BG_AV_REP_CAPTAIN                   125
 #define BG_AV_REP_CAPTAIN_HOLIDAY           185
-#define BG_AV_RES_CAPTAIN                   100
+// patch calibrazione alterac valley
+//#define BG_AV_RES_CAPTAIN                   100
+#define BG_AV_RES_CAPTAIN                   50
+//
 
 #define BG_AV_KILL_TOWER                    3
 #define BG_AV_REP_TOWER                     12
 #define BG_AV_REP_TOWER_HOLIDAY             18
-#define BG_AV_RES_TOWER                     75
+// patch calibrazione alterac valley
+//#define BG_AV_RES_TOWER                     75
+#define BG_AV_RES_TOWER                     40
+//
 
 #define BG_AV_KILL_GET_COMMANDER            1               // for a safely returned wingcommander TODO implement it
 
