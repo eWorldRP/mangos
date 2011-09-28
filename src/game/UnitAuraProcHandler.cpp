@@ -2242,6 +2242,10 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                 // Judgement of Light
                 case 20185:
                 {
+// patch judgements life/wisdom proc chance
+                    if(urand(0,1)) // only 50% chance to proc
+                    {
+//
                     if (pVictim == this)
                        return SPELL_AURA_PROC_FAILED;
 
@@ -2251,11 +2255,18 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
 
                     basepoints[0] = int32( pVictim->GetMaxHealth() * triggeredByAura->GetModifier()->m_amount / 100 );
                     pVictim->CastCustomSpell(pVictim, 20267, &basepoints[0], NULL, NULL, true, NULL, triggeredByAura);
+// patch judgements life/wisdom proc chance
+                    }
+//
                     return SPELL_AURA_PROC_OK;
                 }
                 // Judgement of Wisdom
                 case 20186:
                 {
+// patch judgements life/wisdom proc chance
+                    if(urand(0,1)) // only 50% chance to proc
+                    {
+//
                     // only at real damage
                     if (!damage)
                         return SPELL_AURA_PROC_FAILED;
@@ -2266,6 +2277,9 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                         basepoints[0] = int32(pVictim->GetCreateMana() * 2 / 100);
                         pVictim->CastCustomSpell(pVictim, 20268, &basepoints[0], NULL, NULL, true, NULL, triggeredByAura);
                     }
+// patch judgements life/wisdom proc chance
+                    }
+//
                     return SPELL_AURA_PROC_OK;
                 }
                 // Heart of the Crusader (Rank 1)
