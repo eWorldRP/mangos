@@ -171,7 +171,7 @@ INSERT INTO creature_battleground VALUES
 (200023, 2, 4),
 (200024, 2, 3);
 
-DELETE FROM mangos_string WHERE entry IN (20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009, 20010, 20011, 20012, 20013, 20014, 20015, 20016, 20017, 20018, 20019, 20020, 20021, 20022);
+DELETE FROM mangos_string WHERE entry IN (20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009, 20010, 20011, 20012, 20013, 20014, 20015, 20016, 20017, 20018, 20019, 20020, 20021, 20022, 20023, 20024, 20025, 20026, 20027, 20028, 20029, 20030, 20031, 20032, 20033, 20034, 20035, 20036, 20037, 20038, 20039, 20040, 20041, 20042, 20043, 20052);
 INSERT INTO mangos_string (entry, content_default, content_loc1, content_loc2, content_loc3, content_loc4, content_loc5, content_loc6, content_loc7, content_loc8) VALUES
 (20000, 'The battle for Strand of the Ancients begins in 2 minute.', NULL, NULL, 'Die Schlacht um den Strand der Uralten beginnt in 2 Minuten.', NULL, NULL, 'La batalla por la Playa de los Ancestros comenzará en 2 minutos.', 'La batalla por la Playa de los Ancestros comenzará en 2 minutos.', 'Битва за Берег Древних начнется через 2 минуты.'),
 (20001, 'The battle for Strand of the Ancients begins in 1 minute.', NULL, NULL, 'Die Schlacht um den Strand der Uralten beginnt in 1 Minute.', NULL, NULL, 'La batalla por la Playa de los Ancestros comenzará en 1 minuto.', 'La batalla por la Playa de los Ancestros comenzará en 1 minuto.', 'Битва за Берег Древних начнется через 1 минуту.'),
@@ -199,7 +199,7 @@ INSERT INTO mangos_string (entry, content_default, content_loc1, content_loc2, c
 (20017, 'The Alliance won the first round, the Relic of Titan was captured!', NULL, NULL, 'Die Allianz hat die erste Runde gewonnen, das Titanenportal erobert!', NULL, NULL, '¡La Alianza gana la primera ronda! ¡La reliquia de Titán ha sido capturada!', '¡La Alianza gana la primera ronda! ¡La reliquia de Titán ha sido capturada!', 'Первый раунд за Альянсом! Реликвия Титана захвачена!'),
 (20018, 'The Horde won the first round, the Relic of Titan was captured!', NULL, NULL, 'Die Horde hat die erste Runde gewonnen, das Titanenportal erobert!', NULL, NULL, '¡La Horda gana la primera ronda! ¡La reliquia de Titán ha sido capturada!', '¡La Horda gana la primera ronda! ¡La reliquia de Titán ha sido capturada!', 'Первый раунд за Ордой! Реликвия Титана захвачена!'),
 (20019, 'The Alliance won the second round, the Relic of Titan was captured!', NULL, NULL, 'Die Allianz hat die zweite Runde gewonnen, das Titanenportal erobert!', NULL, NULL, '¡La Horda gana la segunda ronda! ¡La reliquia de Titán ha sido capturada!', '¡La Horda gana la segunda ronda! ¡La reliquia de Titán ha sido capturada!', 'Второй раунд за Альянсом! Реликвия Титана захвачена!'),
-(20020, 'The Horde won the second round, the Relic of Titan was captured!', NULL, NULL, 'Die Horde hat die zweite Runde gewonnen, das Titanenportal erobert!', NULL, NULL, '¡La Alianza gana la segunda ronda! ¡La reliquia de Titán ha sido capturada!', '¡La Alianza gana la segunda ronda! ¡La reliquia de Titán ha sido capturada!', 'Второй раунд за Ордой! Реликвия Титана захвачена!');
+(20020, 'The Horde won the second round, the Relic of Titan was captured!', NULL, NULL, 'Die Horde hat die zweite Runde gewonnen, das Titanenportal erobert!', NULL, NULL, '¡La Alianza gana la segunda ronda! ¡La reliquia de Titán ha sido capturada!', '¡La Alianza gana la segunda ronda! ¡La reliquia de Titán ha sido capturada!', 'Второй раунд за Ордой! Реликвия Титана захвачена!'),
 
 (20021, 'The Horde has taken East Graveyard!', NULL, NULL, 'Der ostliche Friedhof ist von der Horde erobert worden!', NULL, NULL, '¡La Horda ha tomado el Cementerio Oriental!', '¡La Horda ha tomado el Cementerio Oriental!', 'Орда захватила Восточное кладбище!'),
 (20022, 'The Horde has taken West Graveyard!', NULL, NULL, 'Der westlichen Friedhof ist von der Horde erobert worden!', NULL, NULL, '¡La Horda ha tomado el Cementerio Occidental!', '¡La Horda ha tomado el Cementerio Occidental!', 'Орда захватила Западное кладбище!'),
@@ -226,9 +226,10 @@ INSERT INTO mangos_string (entry, content_default, content_loc1, content_loc2, c
 (20040, 'The Alliance won the first round, the Relic of Titan was no captured!', NULL, NULL, 'Runde 1 - Beendet!', NULL, NULL, '¡Ronda 1 acabada!', '¡Ronda 1 acabada!', 'Первый раунд за Альянсом! Реликвия Титана не была захвачена!'),
 (20041, 'The Horde won the second round, the Relic of Titan was no captured!', NULL, NULL, 'Runde 2 - Beendet!', NULL, NULL, '¡Ronda 2 acabada!', '¡Ronda 2 acabada!', 'Второй раунд за Ордой! Реликвия Титана не была захвачена!'),
 (20042, 'The Alliance won the second round, the Relic of Titan was no captured!', NULL, NULL, 'Runde 2 - Beendet!', NULL, NULL, '¡Ronda 2 acabada!', '¡Ronda 2 acabada!', 'Второй раунд за Альянсом! Реликвия Титана не была захвачена!'),
-(20042, 'The Alliance won the second round, the Relic of Titan was no captured!', NULL, NULL, 'Runde 2 - Beendet!', NULL, NULL, '¡Ronda 2 acabada!', '¡Ronda 2 acabada!', 'Второй раунд за Альянсом! Реликвия Титана не была захвачена!'),
 
-(20042, 'End of first round!', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(20043, 'End of first round!', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+
+(20052, 'The drawn game!!!', NULL, NULL, 'Das Spiel ist unentschieden!!!', NULL, NULL, 'NULL', 'NULL', 'Ничья!!!');
 
 -- For SendWarningToAll(entry)
 -- DELETE FROM mangos_string WHERE entry IN (20024, 20025, 20026, 20027, 20028, 20029, 20030, 20031, 20032, 20033, 20034, 20035, 20036, 20037, 20038, 20039, 20040, 20041, 20042, 20043, 20044, 20045, 20046, 20047, 20048, 20049, 20050, 20051,20052);
@@ -239,7 +240,6 @@ INSERT INTO mangos_string (entry, content_default, content_loc1, content_loc2, c
 -- (20027, 'The Alliance attacks East Graveyard!', NULL, NULL, 'Der ostliche Friedhof wird von der Allianz angegriffen!', NULL, NULL, '¡La Alianza esta tomando el Cementerio Oriental!', '¡La Alianza esta tomando el Cementerio Oriental!', 'Альянс атакует Восточное кладбище!'),
 -- (20028, 'The Alliance attacks West Graveyard!', NULL, NULL, 'Der westliche Friedhof wird von der Allianz angegriffen!', NULL, NULL, '¡La Alianza esta tomando el Cementerio Occidental!', '¡La Alianza esta tomando el Cementerio Occidental!', 'Альянс атакует Западное кладбище!'),
 -- (20029, 'The Alliance attacks South Graveyard!', NULL, NULL, 'Der sudliche Friedhof wird von der Allianz angegriffen', NULL, NULL, '¡La Alianza esta tomando el Cementerio Sur!', '¡La Alianza esta tomando el Cementerio Sur!', 'Альянс атакует Южное кладбище!'),
--- (20052, 'The drawn game!!!', NULL, NULL, 'Das Spiel ist unentschieden!!!', NULL, NULL, 'NULL', 'NULL', 'Ничья!!!');
 
 DELETE FROM gameobject WHERE guid BETWEEN 200008 AND 200028;
 INSERT INTO gameobject VALUES
