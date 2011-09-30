@@ -6193,6 +6193,16 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
                     }
                     return;
                 }
+                case 43883:                // Rental Ram
+                {
+                    Unit *caster = GetCaster();
+                    if (!caster)
+                        return;
+                    // on remove we remove the auto-running aura
+                    if (!apply)
+                        caster->RemoveAurasDueToSpell(42146);
+                    return;
+                }
             }
         }
         case SPELLFAMILY_ROGUE:
