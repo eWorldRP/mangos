@@ -12573,10 +12573,7 @@ void Unit::OnRelocated()
     ScheduleAINotify(World::GetRelocationAINotifyDelay());
 }
 
-// patch anticrash
-//ObjectGuid const& Unit::GetCreatorGuid() const
-ObjectGuid const Unit::GetCreatorGuid() const
-//
+ObjectGuid const& Unit::GetCreatorGuid() const
 {
     switch(GetObjectGuid().GetHigh())
     {
