@@ -3709,19 +3709,6 @@ void Aura::HandleAuraMounted(bool apply, bool Real)
     }
     else
     {
-// patch brewfest: remove rental ram auras on dispel
-        if (target->HasAura(43883))
-        {
-            target->RemoveAurasDueToSpell(43883);
-            target->RemoveAurasDueToSpell(43052);
-            target->RemoveAurasDueToSpell(42994);
-            target->RemoveAurasDueToSpell(42993);
-            target->RemoveAurasDueToSpell(42992);
-            target->RemoveAurasDueToSpell(43310);
-            target->RemoveAurasDueToSpell(43332);
-            target->RemoveAurasDueToSpell(42146);
-        }
-//
         target->Unmount(true);
     }
 }

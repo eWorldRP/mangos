@@ -548,7 +548,6 @@ void Unit::RemoveSpellsCausingAura(AuraType auraType)
         if (!holder || holder->IsDeleted())
             continue;
 
-
         toRemoveSpellList.insert(holder->GetId());
     }
 
@@ -5041,6 +5040,20 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
 
 void Unit::RemoveAurasDueToSpellByCancel(uint32 spellId)
 {
+// patch brewfest: remove rental ram various auras
+    // if a player right clicks on this aura, we need to remove all various speed auras, including the autorun one
+    if (spellId == 43883)
+    {
+        RemoveAurasDueToSpell(43052);
+        RemoveAurasDueToSpell(42994);
+        RemoveAurasDueToSpell(42993);
+        RemoveAurasDueToSpell(42992);
+        RemoveAurasDueToSpell(43310);
+        RemoveAurasDueToSpell(43332);
+        RemoveAurasDueToSpell(42146);
+    }
+//
+
     SpellAuraHolderBounds spair = GetSpellAuraHolderBounds(spellId);
     for(SpellAuraHolderMap::iterator iter = spair.first; iter != spair.second;)
     {
