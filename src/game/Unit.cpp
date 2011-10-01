@@ -548,10 +548,6 @@ void Unit::RemoveSpellsCausingAura(AuraType auraType)
         if (!holder || holder->IsDeleted())
             continue;
 
-// patch no rimozione horror
-        if (auraType != SPELL_AURA_MOD_FEAR || !(*iter)->GetHolder()->HasMechanic(MECHANIC_HORROR))
-            continue;
-//
 
         toRemoveSpellList.insert(holder->GetId());
     }
