@@ -6285,6 +6285,8 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
 
         if (subcommand == "train" || subcommand == "learn")
         {
+// patch limitazione playerbots
+/*
             uint32 totalCost = 0;
 
             Unit* unit = ObjectAccessor::GetUnit(*m_bot, fromPlayer.GetSelectionGuid());
@@ -6487,6 +6489,8 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
                     msg << moneyDiff <<  " |TInterface\\Icons\\INV_Misc_Coin_05:8|t more to learn all the spells!";
                 }
             }
+*/
+//
         }
         // Handle: Unlearning selected primary profession skill(s) and all associated spells, skill unlearn [HLINK][HLINK].. ([HLINK] from skill)
         else
