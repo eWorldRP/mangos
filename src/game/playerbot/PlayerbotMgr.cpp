@@ -1067,12 +1067,18 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
             }
         delete resultchar;
     }
-
+    
+// patch playerbots restrinctions
+    int charlvl = 0;
+//
     QueryResult *resultlvl = CharacterDatabase.PQuery("SELECT level,name FROM characters WHERE guid = '%u'", guid.GetCounter());
     if (resultlvl)
     {
         Field *fields = resultlvl->Fetch();
-        int charlvl = fields[0].GetUInt32();
+// patch playerbots restrinctions
+//      int charlvl = fields[0].GetUInt32();
+        charlvl = fields[0].GetUInt32();
+//
         int maxlvl = botConfig.GetIntDefault("PlayerbotAI.RestrictBotLevel", 80);
         if (!(m_session->GetSecurity() > SEC_PLAYER))
             if (charlvl > maxlvl)
@@ -1084,6 +1090,17 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
             }
         delete resultlvl;
     }
+
+// patch playerbots restrinctions
+    uint16 maxgaplevel = botConfig.GetIntDefault("PlayerbotAI.MaxDiffBotLevel", 5);
+    if (abs(int(charlvl + m_session->GetPlayer()->getLevel())) > maxgaplevel)
+    {
+        PSendSysMessage("Too much difference in levels between you and your bot.");
+        SetSentErrorMessage(true);
+        return false;
+    }
+//
+
     // end of gmconfig patch
     if (cmdStr == "add" || cmdStr == "login")
     {
