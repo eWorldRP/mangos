@@ -1093,7 +1093,7 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
 
 // patch playerbots restrinctions
     uint16 maxgaplevel = botConfig.GetIntDefault("PlayerbotAI.MaxDiffBotLevel", 5);
-    if (abs(int(charlvl + m_session->GetPlayer()->getLevel())) > maxgaplevel)
+    if (abs(int(charlvl - m_session->GetPlayer()->getLevel())) > maxgaplevel)
     {
         PSendSysMessage("Too much difference in levels between you and your bot.");
         SetSentErrorMessage(true);
