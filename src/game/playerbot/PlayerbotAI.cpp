@@ -49,7 +49,7 @@ public:
     bool revive(Player& botPlayer) { return HandleReviveCommand((char *) botPlayer.GetName()); }
     bool teleport(Player& botPlayer) { return HandleNamegoCommand((char *) botPlayer.GetName()); }
     void sysmessage(const char *str) { SendSysMessage(str); }
-    bool dropQuest(char *str) { return HandleQuestRemoveCommand(str); }
+    bool ExtractUint32KeyFromLink(char** text, char const* linkType, uint32& value) {ChatHandler::ExtractUint32KeyFromLink(text,linkType,value); }
 };
 
 PlayerbotAI::PlayerbotAI(PlayerbotMgr* const mgr, Player* const bot) :
@@ -5357,6 +5357,44 @@ void PlayerbotAI::GetTaxi(ObjectGuid guid, BotTaxiNode& nodes)
     }
 }
 
+void PlayerbotAI::HandleQuestDropCommand(uint32 questEntry)
+{
+    const Quest *pQuest = sObjectMgr.GetQuestTemplate(questEntry);
+    if (!pQuest)
+    {
+       TellMaster("That quest does not exists.");
+       return;
+    }
+
+    uint16 questSlot = m_bot->FindQuestSlot(questEntry);
+    if (questSlot == MAX_QUEST_LOG_SIZE)
+    {
+       TellMaster("I don't have that quest.");
+       return;
+    }
+
+    if(!m_bot->TakeQuestSourceItem(questEntry, false))
+    {
+       TellMaster("Some of the items for that quest can't be unequipped.");
+       return;
+    }
+
+    // everything ok, remove the quest
+    if (pQuest->HasSpecialFlag(QUEST_SPECIAL_FLAG_TIMED))
+        m_bot->RemoveTimedQuest(questEntry);
+
+    m_bot->SetQuestStatus(questEntry, QUEST_STATUS_NONE);
+    m_bot->SetQuestSlot(questSlot, 0);
+
+    m_bot->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_QUEST_ABANDONED, 1);    
+    
+    // update AI status       
+    SetQuestNeedItems();
+    SetQuestNeedCreatures();
+
+    TellMaster("Quest dropped.");
+}
+
 // handle commands sent through chat channels
 void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
 {
@@ -5907,17 +5945,21 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         }
         else if(subcommand == "d" || subcommand == "drop")
         {
-           fromPlayer.SetSelectionGuid(m_bot->GetObjectGuid());
-           PlayerbotChatHandler ch(GetMaster());
-           int8 linkStart = part.find("|");
-           if(part.find("|") != std::string::npos)
-               if (!ch.dropQuest((char *) part.substr(linkStart).c_str()))
-                   ch.sysmessage("ERROR: could not drop quest");
-               else
-               {
-                   SetQuestNeedItems();
-                   SetQuestNeedCreatures();
-               }
+           std::string::size_type firstor = part.find('|');
+           std::string::size_type lastsp = part.find_last_not_of(' ');
+           if (firstor != std::string::npos && lastsp > firstor) // the link exists and is not empty
+           {
+                std::string questLink = part.substr(firstor,lastsp-firstor+1); // trim the string
+
+                uint32 questEntry;
+                char * questLinkStr = const_cast<char *>(questLink.c_str());
+                if (PlayerbotChatHandler(GetMaster()).ExtractUint32KeyFromLink(&questLinkStr, "Hquest", questEntry))
+                    HandleQuestDropCommand(questEntry);
+                    else
+                        TellMaster("Invalid quest link.");
+           }
+           else
+               TellMaster("Quest link expected.");
         }
         else if(subcommand == "l" || subcommand == "list")
         {
