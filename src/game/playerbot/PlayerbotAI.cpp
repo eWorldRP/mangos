@@ -5468,8 +5468,8 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         m_lootCurrent = ObjectGuid();
         m_targetCombat = 0;
     }
-    else if (text == "report")
-        SendQuestNeedList(*GetMaster());
+    /*else if (text == "report")
+        SendQuestNeedList(*GetMaster());*/ // crash!
     else if (text == "orders")
         SendOrders(*GetMaster());
     else if (text == "follow" || text == "come")
