@@ -204,6 +204,8 @@ public:
     // from a whisper or from the party channel
     void HandleCommand(const std::string& text, Player& fromPlayer);
 
+    void HandleQuestDropCommand(uint32 questEntry);
+
     // This is called by WorldSession.cpp
     // It provides a view of packets normally sent to the client.
     // Since there is no client at the other end, the packets are dropped of course.
