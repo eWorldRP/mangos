@@ -49,7 +49,7 @@ public:
     bool revive(Player& botPlayer) { return HandleReviveCommand((char *) botPlayer.GetName()); }
     bool teleport(Player& botPlayer) { return HandleNamegoCommand((char *) botPlayer.GetName()); }
     void sysmessage(const char *str) { SendSysMessage(str); }
-    bool ExtractUint32KeyFromLink(char** text, char const* linkType, uint32& value) {ChatHandler::ExtractUint32KeyFromLink(text,linkType,value); }
+    bool ExtractUint32KeyFromLink(char** text, char const* linkType, uint32& value) {return ChatHandler::ExtractUint32KeyFromLink(text,linkType,value); }
 };
 
 PlayerbotAI::PlayerbotAI(PlayerbotMgr* const mgr, Player* const bot) :
