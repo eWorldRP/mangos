@@ -3239,6 +3239,13 @@ bool PlayerbotAI::CastSpell(uint32 spellId)
         return false;
     }
 
+// patch bot gcd
+    m_ignoreAIUpdatesUntilTime = time(0) + pSpellInfo->StartRecoveryTime;
+    // se non funziona, possiamo provare cosi:
+//  if(((Player*)m_bot)->GetGlobalCooldownMgr().HasGlobalCooldown(pSpellInfo))
+//      return false;
+//
+
     // set target
     ObjectGuid targetGUID = m_bot->GetSelectionGuid();
     Unit* pTarget = ObjectAccessor::GetUnit(*m_bot, targetGUID);
@@ -5468,8 +5475,11 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         m_lootCurrent = ObjectGuid();
         m_targetCombat = 0;
     }
-    /*else if (text == "report")
-        SendQuestNeedList(*GetMaster());*/ // crash!
+    else if (text == "report")
+    {
+        //SendQuestNeedList(*GetMaster());
+        sLog.outCustom("Il player %s esegue il comando report sul bot (%s). Mappa: %u, posizione: %f %f %f", GetMaster()->GetName(), m_bot->GetName(), GetMaster()->GetMapId(), GetMaster()->GetPositionX(), GetMaster()->GetPositionY(), GetMaster()->GetPositionZ());
+    }
     else if (text == "orders")
         SendOrders(*GetMaster());
     else if (text == "follow" || text == "come")
