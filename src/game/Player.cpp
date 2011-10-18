@@ -16996,7 +16996,7 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
 
             if (caster_guid.IsEmpty() || !caster_guid.IsUnit())
             {
-                sLog.outError("Player::LoadAuras Unknown caster %u, ignore.",fields[0].GetUInt64());
+                sLog.outError("Player::LoadAuras Unknown caster %u, ignore.",(unsigned int)(fields[0].GetUInt64()));
                 continue;
             }
 

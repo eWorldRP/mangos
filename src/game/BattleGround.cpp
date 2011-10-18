@@ -2123,7 +2123,7 @@ bool BattleGround::DelCreature(uint32 type)
     Creature *cr = GetBgMap()->GetCreature(m_BgCreatures[type]);
     if (!cr)
     {
-        sLog.outError("Can't find creature guid: %u", uint64((m_BgCreatures[type]).GetHigh()));
+        sLog.outError("Can't find creature guid: %u", (unsigned int)((m_BgCreatures[type]).GetCounter()));
         return false;
     }
     cr->AddObjectToRemoveList();

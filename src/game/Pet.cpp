@@ -1368,7 +1368,7 @@ void Pet::_LoadAuras(uint32 timediff)
 
             if (casterGuid.IsEmpty() || !casterGuid.IsUnit())
             {
-                sLog.outError("Pet::LoadAuras Unknown caster %u, ignore.",fields[0].GetUInt64());
+                sLog.outError("Pet::LoadAuras Unknown caster %u, ignore.",(unsigned int)(fields[0].GetUInt64()));
                 continue;
             }
 
