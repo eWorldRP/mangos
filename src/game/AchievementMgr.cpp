@@ -475,6 +475,9 @@ void AchievementMgr::ResetAchievementCriteria(AchievementCriteriaTypes type, uin
                     case 1252:
                     case 158:
                     case 157:
+// patch G.N.E.R.D. Rage
+                    case 1261:
+//
                         continue;
                 }
                 SetCriteriaProgress(achievementCriteria, achievement, 0, PROGRESS_SET);

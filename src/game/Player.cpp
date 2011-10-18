@@ -6955,7 +6955,7 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor)
             UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HK_RACE, pVictim->getRace());
 // patch G.N.E.R.D. Rage
             UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1);
-// end G.N.E.R.D. Rage
+//
         }
         else
         {
