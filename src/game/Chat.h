@@ -620,6 +620,7 @@ class MANGOS_DLL_SPEC ChatHandler
 // patch nameannounce
         bool HandleNameAnnounceCommand(char* args);
 //
+        bool HandleShowGearScoreCommand(char* args);
 
         bool HandleMmapPathCommand(char* args);
         bool HandleMmapLocCommand(char* args);

@@ -299,7 +299,7 @@ Unit::Unit() :
 
 Unit::~Unit()
 {
-#ifndef WIN32
+#ifndef NOTSAFE_SEMAPHORE_OVERHANDLING
     MAPLOCK_WRITE(this, MAP_LOCK_TYPE_DEFAULT);
     MAPLOCK_WRITE1(this, MAP_LOCK_TYPE_AURAS);
 #endif
@@ -1035,7 +1035,7 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
             if (InstanceData* mapInstance = cVictim->GetInstanceData())
                 mapInstance->OnCreatureDeath(cVictim);
 
-            if (m_isCreatureLinkingTrigger)
+            if (cVictim->IsLinkingEventTrigger())
                 cVictim->GetMap()->GetCreatureLinkingHolder()->DoCreatureLinkingEvent(LINKING_EVENT_DIE, cVictim);
 
             // Dungeon specific stuff, only applies to players killing creatures
@@ -11290,23 +11290,24 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
         MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
         for(SpellAuraHolderMap::const_iterator itr = GetSpellAuraHolderMap().begin(); itr!= GetSpellAuraHolderMap().end(); ++itr)
         {
+            SpellAuraHolderPtr holder = itr->second;
             // skip deleted auras (possible at recursive triggered call
-            if (itr->second->IsDeleted())
+            if (!holder || holder->IsDeleted())
                 continue;
 
             SpellProcEventEntry const* spellProcEvent = NULL;
-            if(!IsTriggeredAtSpellProcEvent(pTarget, itr->second, procSpell, procFlag, procExtra, attType, isVictim, spellProcEvent))
+            if(!IsTriggeredAtSpellProcEvent(pTarget, holder, procSpell, procFlag, procExtra, attType, isVictim, spellProcEvent))
                continue;
 
             // Frost Nova: prevent to remove root effect on self damage
-            if (itr->second->GetCaster() == pTarget)
-               if (SpellEntry const* spellInfo = itr->second->GetSpellProto())
+            if (holder->GetCaster() == pTarget)
+               if (SpellEntry const* spellInfo = holder->GetSpellProto())
                   if (procSpell && spellInfo->SpellFamilyName == SPELLFAMILY_MAGE && spellInfo->SpellFamilyFlags.test<CF_MAGE_FROST_NOVA>()
                      && procSpell->SpellFamilyName == SPELLFAMILY_MAGE && procSpell->SpellFamilyFlags.test<CF_MAGE_FROST_NOVA>())
                         continue;
 
-            itr->second->SetInUse(true);                        // prevent holder deletion
-            procTriggered.push_back( ProcTriggeredData(spellProcEvent, itr->second) );
+            holder->SetInUse(true);                        // prevent holder deletion
+            procTriggered.push_back(ProcTriggeredData(spellProcEvent, holder));
         }
     }
 
@@ -11319,7 +11320,7 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
     {
         // Some auras can be deleted in function called in this loop (except first, ofc)
         SpellAuraHolderPtr triggeredByHolder = itr->triggeredByHolder;
-        if (triggeredByHolder->IsDeleted())
+        if (!triggeredByHolder || triggeredByHolder->IsDeleted())
             continue;
 
         SpellProcEventEntry const *spellProcEvent = itr->spellProcEvent;

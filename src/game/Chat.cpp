@@ -858,7 +858,8 @@ ChatCommand * ChatHandler::getCommandTable()
         { "quit",           SEC_CONSOLE,        true,  &ChatHandler::HandleQuitCommand,                "", NULL },
         { "ircpm",          SEC_PLAYER,         false, &ChatHandler::HandleIRCpmCommand,               "", NULL },
         { "chatspy",        SEC_ADMINISTRATOR,  true,  NULL,                                           "", chatspyCommandTable },
-        { "mmap",           SEC_GAMEMASTER,     false, NULL,                                           "", mmapCommandTable },
+        { "mmap",           SEC_GAMEMASTER,     false, NULL, 
+        { "gearscore",      SEC_ADMINISTRATOR,  false, &ChatHandler::HandleShowGearScoreCommand,       "", NULL },
         { NULL,             0,                  false, NULL,                                           "", NULL }
     };
 
