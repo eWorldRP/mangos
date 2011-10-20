@@ -5364,8 +5364,64 @@ void PlayerbotAI::GetTaxi(ObjectGuid guid, BotTaxiNode& nodes)
     }
 }
 
-void PlayerbotAI::HandleQuestDropCommand(uint32 questEntry)
+#define SPACES "\t\n\r "
+
+std::string PlayerbotAI::SplitSubCommand(std::string & cmd)
 {
+    Trim(cmd);
+
+    std::string::size_type firstspace = cmd.find_first_of(SPACES);
+    if (firstspace == std::string::npos) // no spaces: it's only one command
+    {
+        std::string result = cmd;
+        cmd.clear();
+        return result;
+    }
+
+    std::string command = cmd.substr(0,firstspace-1); // the command
+
+    cmd = cmd.substr(firstspace+1); // subcommands or parameters
+    Trim(cmd);
+
+    return command;
+}
+
+void PlayerbotAI::Trim(std::string & cmd)
+{
+    if (cmd.empty())
+        return; // nothing to do
+
+    std::string::size_type frombegin = cmd.find_first_not_of(SPACES);
+    if (frombegin == std::string::npos) // only spaces found
+    {
+        cmd.clear();
+        return;
+    }
+
+    std::string::size_type fromend = cmd.find_last_not_of(SPACES);
+    cmd = cmd.substr(frombegin,fromend - frombegin + 1);
+}
+
+#undef SPACES
+
+void PlayerbotAI::HandleQuestDropCommand(std::string &cmd)
+{
+    Trim(cmd);
+
+    if (cmd.empty())
+    {
+        TellMaster("Quest link expected.");
+        return;
+    }
+
+    uint32 questEntry;
+    char * questLinkStr = const_cast<char *>(cmd.c_str());
+    if (!(PlayerbotChatHandler(GetMaster()).ExtractUint32KeyFromLink(&questLinkStr, "Hquest", questEntry)))
+    {
+        TellMaster("Invalid quest link.");
+        return;
+    }
+
     const Quest *pQuest = sObjectMgr.GetQuestTemplate(questEntry);
     if (!pQuest)
     {
@@ -5954,23 +6010,7 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
             m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
         }
         else if(subcommand == "d" || subcommand == "drop")
-        {
-           std::string::size_type firstor = part.find('|');
-           std::string::size_type lastsp = part.find_last_not_of(' ');
-           if (firstor != std::string::npos && lastsp > firstor) // the link exists and is not empty
-           {
-                std::string questLink = part.substr(firstor,lastsp-firstor+1); // trim the string
-
-                uint32 questEntry;
-                char * questLinkStr = const_cast<char *>(questLink.c_str());
-                if (PlayerbotChatHandler(GetMaster()).ExtractUint32KeyFromLink(&questLinkStr, "Hquest", questEntry))
-                    HandleQuestDropCommand(questEntry);
-                    else
-                        TellMaster("Invalid quest link.");
-           }
-           else
-               TellMaster("Quest link expected.");
-        }
+          HandleQuestDropCommand(part);
         else if(subcommand == "l" || subcommand == "list")
         {
                 m_tasks.push_back(std::pair<enum TaskFlags,uint32>(LIST, 0));

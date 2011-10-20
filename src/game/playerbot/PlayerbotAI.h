@@ -204,7 +204,12 @@ public:
     // from a whisper or from the party channel
     void HandleCommand(const std::string& text, Player& fromPlayer);
 
-    void HandleQuestDropCommand(uint32 questEntry);
+    // command handlers
+    void HandleQuestDropCommand(std::string &cmd);
+
+    // command utilities
+    static std::string SplitSubCommand(std::string & cmd); // extracts the first subcommand from the string
+    static void Trim(std::string & cmd);
 
     // This is called by WorldSession.cpp
     // It provides a view of packets normally sent to the client.
