@@ -206,10 +206,13 @@ public:
 
     // command handlers
     void HandleQuestDropCommand(std::string &cmd);
+    void HandleQuestCommand(std::string &cmd);
+    void HandleQuestNULLCommand();
 
     // command utilities
     static std::string SplitSubCommand(std::string & cmd); // extracts the first subcommand from the string
     static void Trim(std::string & cmd);
+    static void ToLower(std::string & cmd);
 
     // This is called by WorldSession.cpp
     // It provides a view of packets normally sent to the client.

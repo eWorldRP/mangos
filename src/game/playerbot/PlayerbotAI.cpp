@@ -5378,7 +5378,7 @@ std::string PlayerbotAI::SplitSubCommand(std::string & cmd)
         return result;
     }
 
-    std::string command = cmd.substr(0,firstspace-1); // the command
+    std::string command = cmd.substr(0,firstspace); // the command
 
     cmd = cmd.substr(firstspace+1); // subcommands or parameters
     Trim(cmd);
@@ -5402,12 +5402,129 @@ void PlayerbotAI::Trim(std::string & cmd)
     cmd = cmd.substr(frombegin,fromend - frombegin + 1);
 }
 
+void PlayerbotAI::ToLower(std::string & cmd)
+{
+    for (std::string::size_type i = 0; i < cmd.size(); i++)
+        cmd[i] = std::tolower(cmd[i]);
+}
+
 #undef SPACES
+
+void PlayerbotAI::HandleQuestCommand(std::string &cmd)
+{
+    std::string subcommand = SplitSubCommand(cmd);
+    ToLower(subcommand);
+
+    if (subcommand.empty())
+    {
+        HandleQuestNULLCommand();
+        return;
+    }
+
+    if (subcommand == "d" || subcommand == "drop")
+    {
+        HandleQuestDropCommand(cmd);
+        return;
+    }
+
+    if (subcommand == "a" || subcommand == "add")
+    {
+        std::list<uint32> questIds;
+        extractQuestIds(cmd, questIds);
+        for (std::list<uint32>::iterator it = questIds.begin(); it != questIds.end(); it++)
+            m_tasks.push_back(std::pair<enum TaskFlags,uint32>(ADD, *it));
+        m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        return;
+    }
+
+    if (subcommand == "l" || subcommand == "list")
+    {
+        m_tasks.push_back(std::pair<enum TaskFlags,uint32>(LIST, 0));
+        m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        return;
+    }
+
+    if (subcommand == "e" || subcommand == "end")
+    {
+        m_tasks.push_back(std::pair<enum TaskFlags,uint32>(END, 0));
+        m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        return;
+    }
+
+    // error
+    TellMaster("Unknown subcommand \"" + subcommand + "\" for \"quest\".");
+    TellMaster("Valid subcommands are: (d)rop, (a)dd, (l)ist, (e)nd.");
+}
+
+void PlayerbotAI::HandleQuestNULLCommand()
+{
+    // store ids here, because complete quests must be placed before other quests (by design)
+    std::list<Quest const *> quests;
+    uint32 completeIdx = 0; // last first incomplete quest in the list
+
+    // find all the quests in the quest log
+    for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
+    {
+        if (uint32 questId = m_bot->GetQuestSlotQuestId(slot))
+        {
+            Quest const* pQuest = sObjectMgr.GetQuestTemplate(questId);
+            if (!pQuest)
+            {
+                // silently ignore, but send an error to the log
+                sLog.outError("PlayerBotAI: ERROR: Character %u has invalid quest %u at slot %u.",
+                              m_bot->GetGUIDLow(),questId,(unsigned int)slot);
+                continue;
+            }
+
+            if (m_bot->GetQuestStatus(questId) == QUEST_STATUS_COMPLETE)
+            {
+                quests.push_front(pQuest); // completed first
+                completeIdx++;
+            }
+            else
+                quests.push_back(pQuest);
+         }
+     }
+
+     if (quests.empty())
+     {
+         TellMaster("I have no quests!");
+         return;
+     }
+
+     TellMaster("The quests I have are:");
+
+     for (std::list<Quest const *>::iterator i = quests.begin(); i != quests.end(); ++i)
+     {
+         uint32 questId = (*i)->GetQuestId();
+         std::ostringstream questdata;
+         std::string questTitle = (*i)->GetTitle();
+         QuestLocalization(questTitle, questId);
+
+         questdata << "|cFFFFFF00|Hquest:" << questId << ':' << (*i)->GetQuestLevel() << "|h[" << questTitle << "]|h|r";
+
+         if (completeIdx)
+         {
+             questdata << " is complete";
+             TellMaster(questdata.str());
+             completeIdx--; // when this reaches 0, no more completed quests in list
+         }
+         // if not completed, send source item information
+         else
+         {
+             if (Item* qitem = FindItem((*i)->GetSrcItemId()))
+             {
+                 questdata << " provides item ";
+                 questdata << "|cffffffff|Hitem:" << qitem->GetProto()->ItemId << ":0:0:0:0:0:0:0" << "|h[" << qitem->GetProto()->Name1 << "]|h|r";
+             }
+
+             TellMaster(questdata.str());
+         }
+     }
+}
 
 void PlayerbotAI::HandleQuestDropCommand(std::string &cmd)
 {
-    Trim(cmd);
-
     if (cmd.empty())
     {
         TellMaster("Quest link expected.");
@@ -5983,83 +6100,10 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     // Handle bot quests
     else if (text.size() >= 5 && text.substr(0, 5) == "quest")
     {
-        std::ostringstream msg;
+        std::string t = text; // FIXME
+        SplitSubCommand(t); // drop "quest" part
 
-        std::string part = "";
-        std::string subcommand = "";
-
-        if (text.size() > 5 && text.substr(0, 6) == "quest ")
-            part = text.substr(6);  // Truncate 'quest ' part
-
-        if (part.find(" ") != std::string::npos)
-        {
-            subcommand = part.substr(0, part.find(" "));
-            if (part.size() > subcommand.size())
-                part = part.substr(subcommand.size() + 1);
-
-        }
-        else
-            subcommand = part;
-
-        if(subcommand == "a" || subcommand == "add")
-        {
-            std::list<uint32> questIds;
-            extractQuestIds(part, questIds);
-            for (std::list<uint32>::iterator it = questIds.begin(); it != questIds.end(); it++)
-                m_tasks.push_back(std::pair<enum TaskFlags,uint32>(ADD, *it));
-            m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
-        }
-        else if(subcommand == "d" || subcommand == "drop")
-          HandleQuestDropCommand(part);
-        else if(subcommand == "l" || subcommand == "list")
-        {
-                m_tasks.push_back(std::pair<enum TaskFlags,uint32>(LIST, 0));
-                m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
-        }
-        else if(subcommand == "e" || subcommand == "end")
-        {
-                m_tasks.push_back(std::pair<enum TaskFlags,uint32>(END, 0));
-                m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
-        }
-        else
-        {
-            bool hasIncompleteQuests = false;
-            std::ostringstream incomout;
-            incomout << "my incomplete quests are:";
-            bool hasCompleteQuests = false;
-            std::ostringstream comout;
-            comout << "my complete quests are:";
-            for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
-            {
-                if (uint32 questId = m_bot->GetQuestSlotQuestId(slot))
-                {
-                    Quest const* pQuest = sObjectMgr.GetQuestTemplate(questId);
-
-                    std::string questTitle  = pQuest->GetTitle();
-                    m_bot->GetPlayerbotAI()->QuestLocalization(questTitle, questId);
-
-                    if (m_bot->GetQuestStatus(questId) == QUEST_STATUS_COMPLETE)
-                    {
-                        hasCompleteQuests = true;
-                        comout << " |cFFFFFF00|Hquest:" << questId << ':' << pQuest->GetQuestLevel() << "|h[" << questTitle << "]|h|r";
-                    }
-                    else
-                    {
-                        Item* qitem = FindItem(pQuest->GetSrcItemId());
-                        if(qitem)
-                            incomout << " use " << "|cffffffff|Hitem:" << qitem->GetProto()->ItemId << ":0:0:0:0:0:0:0" << "|h[" << qitem->GetProto()->Name1 << "]|h|r" << " on ";
-                        hasIncompleteQuests = true;
-                        incomout << " |cFFFFFF00|Hquest:" << questId << ':' << pQuest->GetQuestLevel() << "|h[" <<  questTitle << "]|h|r";
-                    }
-                }
-            }
-            if (hasCompleteQuests)
-                SendWhisper(comout.str(), fromPlayer);
-            if (hasIncompleteQuests)
-                SendWhisper(incomout.str(), fromPlayer);
-            if (!hasCompleteQuests && !hasIncompleteQuests)
-                SendWhisper("I have no quests!", fromPlayer);
-        }
+        HandleQuestCommand(t);
     }
 
     // Handle all pet related commands here
