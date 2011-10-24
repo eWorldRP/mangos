@@ -1879,11 +1879,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 67638:                                 // (Trial of the Crusader, all difficulties)
                 case 67639:                                 // ----- // -----
                 case 67640:                                 // ----- // -----
-                    if (m_caster->HasAura(66882))
-                    {
-                        if (Aura* pAura = m_caster->GetAura(66882, EFFECT_INDEX_0))
-                            radius = 0.5*(60-(pAura->GetAuraDuration()/IN_MILLISECONDS));
-                    }
+                    if (Unit* caster = GetCaster())
+                        radius = 5*caster->GetFloatValue(OBJECT_FIELD_SCALE_X);
                     break;
                 case 67732:                                 // Destroy all Frost Patches (Trial of the Crusader, Anub'arak)
                     radius = 9.0f;
