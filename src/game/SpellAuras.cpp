@@ -8322,9 +8322,10 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
 void Aura::PeriodicTick()
 {
     Unit* target = GetTarget();
+    SpellAuraHolderPtr holder = GetHolder();
     SpellEntry const* spellProto = GetSpellProto();
 
-    if (!target || !spellProto)
+    if (!holder || !target || !spellProto)
         return;
 
     if (target->IsImmuneToSpell(spellProto))
