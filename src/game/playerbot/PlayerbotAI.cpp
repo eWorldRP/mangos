@@ -5405,7 +5405,7 @@ void PlayerbotAI::Trim(std::string & cmd)
 void PlayerbotAI::ToLower(std::string & cmd)
 {
     for (std::string::size_type i = 0; i < cmd.size(); i++)
-        cmd[i] = std::tolower(cmd[i]);
+        cmd[i] = ::tolower(cmd[i]);
 }
 
 #undef SPACES
