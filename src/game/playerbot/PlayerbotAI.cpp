@@ -5575,6 +5575,25 @@ void PlayerbotAI::HandleQuestDropCommand(std::string &cmd)
     TellMaster("Quest dropped.");
 }
 
+void PlayerbotAI::HandleEquipCommand(std::string &cmd)
+{
+    if (!cmd.empty())
+    {
+        std::list<uint32> itemIds;
+        std::list<Item*> itemList;
+        extractItemIds(cmd, itemIds);
+        findItemsInInv(itemIds, itemList);
+        if (itemList.empty())
+            TellMaster("Item not found.");
+        for (std::list<Item*>::iterator it = itemList.begin(); it != itemList.end(); ++it)
+            EquipItem(*it);
+    }
+    else
+        SendNotEquipList(*m_bot);
+
+    InspectUpdate();
+}
+
 // handle commands sent through chat channels
 void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
 {
@@ -5590,6 +5609,12 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         text.find("CTRA") != std::wstring::npos ||
         text.find("GathX") == 0) // Gatherer
         return;
+
+    std::string texttoprocess = text;
+    std::string rootcommand = SplitSubCommand(texttoprocess);
+    if (rootcommand.empty())
+        return; // no command
+    ToLower(rootcommand);
 
     // if message is not from a player in the masters account auto reply and ignore
     if (!canObeyCommandFrom(fromPlayer))
@@ -5926,17 +5951,8 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     }
 
     // equip items
-    else if ((text.size() > 2 && text.substr(0, 2) == "e ") || (text.size() > 6 && text.substr(0, 6) == "equip "))
-    {
-        std::list<uint32> itemIds;
-        std::list<Item*> itemList;
-        extractItemIds(text, itemIds);
-        findItemsInInv(itemIds, itemList);
-        for (std::list<Item*>::iterator it = itemList.begin(); it != itemList.end(); ++it)
-            EquipItem(*it);
-        InspectUpdate();
-        SendNotEquipList(*m_bot);
-    }
+    else if (rootcommand == "e" || rootcommand == "equip")
+        HandleEquipCommand(texttoprocess);
 
     // find project: 20:50 02/12/10 rev.4 item in world and wait until ordered to follow
     else if ((text.size() > 2 && text.substr(0, 2) == "f ") || (text.size() > 5 && text.substr(0, 5) == "find "))
@@ -6098,13 +6114,8 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     }
 
     // Handle bot quests
-    else if (text.size() >= 5 && text.substr(0, 5) == "quest")
-    {
-        std::string t = text; // FIXME
-        SplitSubCommand(t); // drop "quest" part
-
-        HandleQuestCommand(t);
-    }
+    else if (rootcommand == "quest")
+        HandleQuestCommand(texttoprocess);
 
     // Handle all pet related commands here
     else if (text.size() > 4 && text.substr(0, 4) == "pet ")

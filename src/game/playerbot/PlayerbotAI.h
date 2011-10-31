@@ -208,6 +208,7 @@ public:
     void HandleQuestDropCommand(std::string &cmd);
     void HandleQuestCommand(std::string &cmd);
     void HandleQuestNULLCommand();
+    void HandleEquipCommand(std::string &cmd);
 
     // command utilities
     static std::string SplitSubCommand(std::string & cmd); // extracts the first subcommand from the string

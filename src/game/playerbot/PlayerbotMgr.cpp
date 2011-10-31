@@ -222,6 +222,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
 
         // If master inspects one of his bots, give the master useful info in chat window
         // such as inventory that can be equipped
+        /*
         case CMSG_INSPECT:
         {
             WorldPacket p(packet);
@@ -232,6 +233,7 @@ void PlayerbotMgr::HandleMasterIncomingPacket(const WorldPacket& packet)
             if (bot) bot->GetPlayerbotAI()->SendNotEquipList(*bot);
             return;
         }
+        */
 
         // handle emotes from the master
         //case CMSG_EMOTE:
