@@ -1082,6 +1082,18 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
         {
             procEx |= PROC_EX_CRITICAL_HIT;
             addhealth = caster->SpellCriticalHealingBonus(m_spellInfo, addhealth, NULL);
+
+//patch Proc of Holy Concentratio on Empowered Renew's critical
+            if (m_spellInfo->Id == 63544)
+            {
+                if (caster->HasAura(34860))
+                    caster->CastSpell(caster, 63725, true);
+                else if (caster->HasAura(34859))
+                    caster->CastSpell(caster, 63724, true);
+                else if (caster->HasAura(34753))
+                    caster->CastSpell(caster, 34754, true);
+            }
+//end patch
         }
         else
             procEx |= PROC_EX_NORMAL_HIT;
