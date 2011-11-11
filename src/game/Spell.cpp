@@ -577,6 +577,21 @@ void Spell::FillTargetMap()
                             SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetB[i], tmpUnitMap);
                         }
                         break;
+                    case TARGET_AREAEFFECT_INSTANT:
+// patch Thorim's Spell
+                        switch(m_spellInfo->Id)
+                        {
+                            case 62560:     // Berserk Adds
+                                SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
+                                SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, tmpUnitMap);
+                                break;
+                            case 62016:     // Charge Orb
+                                if (m_targets.getUnitTarget())
+                                    tmpUnitMap.push_back(m_targets.getUnitTarget());
+                                break;
+                        }
+//
+                        break;
                     case 0:
 // patch life burst hack
                         // Life Burst (Wyrmrest Skytalon) hack - spell is AoE but implicitTargets dont match here :/
