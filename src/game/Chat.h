@@ -490,6 +490,8 @@ class MANGOS_DLL_SPEC ChatHandler
 // patch sanctuary area-zone-map
         bool HandleReloadCustomSanctuaryCommand(char* args);
 //
+
+        bool HandleReloadSpellLinkedCommand(char* args);
         bool HandleReloadSpellDisabledCommand(char* args);
         bool HandleReloadAntiCheatCommand(char* args);
 

@@ -830,7 +830,7 @@ bool Creature::Create(uint32 guidlow, CreatureCreatePos& cPos, CreatureInfo cons
         cPos.GetMap()->GetCreatureLinkingHolder()->AddMasterToHolder(this);
     }
 
-    LoadCreatureAddon();
+    LoadCreatureAddon(false);
 
     return true;
 }
@@ -1597,7 +1597,7 @@ void Creature::ForcedDespawn(uint32 timeMSToDespawn)
         return;
     }
 
-    if (isAlive())
+    if (IsInWorld() && isAlive())
         SetDeathState(JUST_DIED);
 
     RemoveCorpse();
@@ -1993,7 +1993,7 @@ bool Creature::LoadCreatureAddon(bool reload)
     {
         for (uint32 const* cAura = cainfo->auras; *cAura; ++cAura)
         {
-            if (HasAura(*cAura))
+            if (HasAuraOfDifficulty(*cAura))
             {
                 if (!reload)
                     sLog.outErrorDb("Creature (GUIDLow: %u Entry: %u) has spell %u in `auras` field, but aura is already applied.", GetGUIDLow(), GetEntry(), *cAura);
@@ -2001,7 +2001,14 @@ bool Creature::LoadCreatureAddon(bool reload)
                 continue;
             }
 
-            CastSpell(this, *cAura, true);
+            SpellEntry const* spellInfo = sSpellStore.LookupEntry(*cAura);  // Already checked on load
+
+            // Get Difficulty mode for initial case (npc not yet added to world)
+            if (spellInfo->SpellDifficultyId && !reload && GetMap()->IsDungeon())
+                if (SpellEntry const* spellEntry = GetSpellEntryByDifficulty(spellInfo->SpellDifficultyId, GetMap()->GetDifficulty(), GetMap()->IsRaid()))
+                    spellInfo = spellEntry;
+
+            CastSpell(this, spellInfo, true);
         }
     }
     return true;
@@ -2069,6 +2076,9 @@ bool Creature::MeetsSelectAttackingRequirement(Unit* pTarget, SpellEntry const* 
         return false;
 
     if (selectFlags & SELECT_FLAG_IN_MELEE_RANGE && !CanReachWithMeleeAttack(pTarget))
+        return false;
+
+    if (selectFlags & SELECT_FLAG_NOT_IN_MELEE_RANGE && CanReachWithMeleeAttack(pTarget))
         return false;
 
     if (selectFlags & SELECT_FLAG_IN_LOS && !IsWithinLOSInMap(pTarget))

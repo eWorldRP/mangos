@@ -1,3 +1,22 @@
+/*
+* Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+* Copyright (C) 2010 Blueboy
+* Copyright (C) 2011 MangosR2 
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
 
 #include "PlayerbotMageAI.h"
 
@@ -63,6 +82,11 @@ PlayerbotMageAI::PlayerbotMageAI(Player* const master, Player* const bot, Player
 
 PlayerbotMageAI::~PlayerbotMageAI() {}
 
+bool PlayerbotMageAI::DoFirstCombatManeuver(Unit *pTarget)
+{
+    return false;
+}
+
 void PlayerbotMageAI::DoNextCombatManeuver(Unit *pTarget)
 {
     PlayerbotAI* ai = GetAI();
@@ -75,8 +99,6 @@ void PlayerbotMageAI::DoNextCombatManeuver(Unit *pTarget)
             if (FIREBALL > 0)
                 ai->CastSpell(FIREBALL);
             return;
-        default:
-            break;
     }
 
     // ------- Non Duel combat ----------
@@ -368,9 +390,10 @@ void PlayerbotMageAI::DoNonCombatActions()
     if (master->GetGroup())
     {
         // Buff master with group buff...
-        if (ARCANE_BRILLIANCE && ai->HasSpellReagents(ARCANE_BRILLIANCE))
-            if (ai->Buff(ARCANE_BRILLIANCE, master))
-                return;
+        if (!master->IsInDuel(master))
+            if (ARCANE_BRILLIANCE && ai->HasSpellReagents(ARCANE_BRILLIANCE))
+                if (ai->Buff(ARCANE_BRILLIANCE, master))
+                    return;
 
         // ...and check group for new members joined or resurrected, or just buff everyone if no group buff available
         Group::MemberSlotList const& groupSlot = GetMaster()->GetGroup()->GetMemberSlots();
@@ -379,6 +402,10 @@ void PlayerbotMageAI::DoNonCombatActions()
             Player *tPlayer = sObjectMgr.GetPlayer(itr->guid);
             if (!tPlayer || !tPlayer->isAlive() || tPlayer == m_bot)
                 continue;
+
+            if (tPlayer->IsInDuelWith(master))
+                continue;
+
             // buff
             if (BuffPlayer(tPlayer))
                 return;
@@ -390,8 +417,9 @@ void PlayerbotMageAI::DoNonCombatActions()
         return;
 
     // Buff self finally
-    if (BuffPlayer(m_bot))
-        return;
+    else if (master->isAlive() && !master->IsInDuel(master))
+        if (BuffPlayer(master))
+            return;
 
     // conjure food & water
     if (m_bot->getStandState() != UNIT_STAND_STATE_STAND)

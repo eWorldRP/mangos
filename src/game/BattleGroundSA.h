@@ -21,10 +21,10 @@
 
 class BattleGround;
 
-#define BG_SA_GRY_MAX   4
-#define BG_SA_GATE_MAX  6
-#define BG_SA_MAX_WS    3
-#define BG_SA_EVENT_START_BATTLE_1      23748
+#define BG_SA_GRY_MAX 3
+#define BG_SA_GATE_MAX 6
+#define BG_SA_MAX_WS 4
+#define BG_SA_EVENT_START_BATTLE_1      23748       // Ally / Horde likely
 #define BG_SA_EVENT_START_BATTLE_2      21702
 
 enum BG_SA_WorldStates
@@ -41,7 +41,6 @@ enum BG_SA_WorldStates
     BG_SA_GREEN_GATEWS          = 3623,
     BG_SA_YELLOW_GATEWS         = 3638,
     BG_SA_ANCIENT_GATEWS        = 3849,
-
 
     BG_SA_LEFT_GY_ALLIANCE      = 3635,
     BG_SA_RIGHT_GY_ALLIANCE     = 3636,
@@ -73,25 +72,18 @@ enum BG_SA_Sounds
 
 enum BG_SA_GraveYardStatus
 {
-    BG_SA_GARVE_STATUS_ALLY_CONTESTED    = 1,   //Owned by the Allies, clickable for Horde
-    BG_SA_GARVE_STATUS_HORDE_CONTESTED   = 2,   //Owned by the Horde, clickable for Alliance
-    BG_SA_GARVE_STATUS_ALLY_OCCUPIED     = 3,   //Captured by the Allies, not clickable by anyone
-    BG_SA_GARVE_STATUS_HORDE_OCCUPIED    = 4    //Captured by the Horde, not clickable by anyone
-};
-
-enum BG_SA_GraveYard
-{
-    BG_SA_GARVE_E                       = 0,
-    BG_SA_GARVE_W                       = 1,
-    BG_SA_GARVE_S                       = 2,
-    BG_SA_GARVE_ERROR                   = 255
+    BG_SA_GRAVE_STATUS_CONTESTED         = 1,   // adding status_contested and status_occupied just to make some cases clearer
+    BG_SA_GRAVE_STATUS_ALLY_CONTESTED    = 1,   // Owned by the Allies, clickable for Horde
+    BG_SA_GRAVE_STATUS_HORDE_CONTESTED   = 2,   // Owned by the Horde, clickable for Alliance
+    BG_SA_GRAVE_STATUS_OCCUPIED          = 3,
+    BG_SA_GRAVE_STATUS_ALLY_OCCUPIED     = 3,   // Captured by the Allies, not clickable by anyone
+    BG_SA_GRAVE_STATUS_HORDE_OCCUPIED    = 4    // Captured by the Horde, not clickable by anyone
 };
 
 enum BG_SA_Timers
 {
     BG_SA_ROUNDLENGTH                   = 600000,
-    BG_SA_BOAT_START                    = 65000,
-    BG_SA_PILLAR_START                  = 90000
+    BG_SA_BOAT_START                    = 70000
 };
 
 enum BG_SA_GateStatus
@@ -99,12 +91,6 @@ enum BG_SA_GateStatus
     BG_SA_GO_GATES_NORMAL               = 1,
     BG_SA_GO_GATES_DAMAGE               = 2,
     BG_SA_GO_GATES_DESTROY              = 3
-};
-
-enum BG_SA_TeamIndex
-{
-    BG_SA_ALLIANCE                      = 0,
-    BG_SA_HORDE                         = 1
 };
 
 enum BG_SA_GoId
@@ -130,12 +116,20 @@ enum BG_SA_GoType
 
 enum BG_SA_Events
 {
-    SA_EVENT_ADD_SPIR       = 5,
-    SA_EVENT_ADD_BOMB       = 6,
-    SA_EVENT_ADD_NPC        = 7,
-    SA_EVENT_ADD_GO         = 8,
-    SA_EVENT_ADD_VECH_E     = 9,
-    SA_EVENT_ADD_VECH_W     = 10
+    SA_EVENT_ADD_GRAVE_E    = 0,        // east base spirit healers and flags
+    SA_EVENT_ADD_GRAVE_W    = 1,        // west base spirit healers and flags
+    SA_EVENT_ADD_GRAVE_C    = 2,        // central base spirit healers and flags
+    SA_EVENT_ADD_GRAVE_A    = 3,        // last defender graveyard, at the ancient shrine
+    SA_EVENT_ADD_GRAVE_B    = 4,        // beach spirit healers
+    SA_EVENT_ADD_BOMB_E     = 5,        // east base bombs
+    SA_EVENT_ADD_BOMB_W     = 6,        // west base bombs
+    SA_EVENT_ADD_BOMB_C     = 7,        // central base bombs (on both sides of the yellow gate)
+    SA_EVENT_ADD_BOMB_B     = 8,        // bombs on the beach
+    SA_EVENT_ADD_NPC        = 9,        // dock demolishers, factory npcs
+    SA_EVENT_ADD_CANNON     = 10,       // defender cannons
+    SA_EVENT_ADD_GO         = 11,       // flagpoles, defender portals
+    SA_EVENT_ADD_VECH_E     = 12,       // east base demolishers
+    SA_EVENT_ADD_VECH_W     = 13,       // west base demolishers
 };
 
 enum BG_SA_Boats
@@ -159,32 +153,12 @@ enum BG_SA_MessageType
     BG_SA_DESTROY           = 2
 };
 
-enum BG_SA_type_gyd_attack
-{
-    STATUS_CLAIMED          = 0,
-    STATUS_CONQUESTED       = 1
-};
-
-enum VehicleFactions
-{
-    VEHICLE_FACTION_NEUTRAL  = 35,
-    VEHICLE_FACTION_ALLIANCE = 3,
-    VEHICLE_FACTION_HORDE    = 6
-};
-
 enum BG_SA_Boat
 {
     BG_SA_BOAT_ONE_A = 193182,
     BG_SA_BOAT_TWO_H = 193183,
     BG_SA_BOAT_ONE_H = 193184,
     BG_SA_BOAT_TWO_A = 193185
-};
-
-enum VehicleTypes
-{
-    VEHICLE_UNK           = 0,
-    VEHICLE_SA_DEMOLISHER = 1,
-    VEHICLE_SA_CANNON     = 2
 };
 
 enum BG_SA_Phase
@@ -222,7 +196,6 @@ class BattleGroundSA : public BattleGround
         virtual void StartingEventCloseDoors();
         virtual void StartingEventOpenDoors();
         virtual void EventPlayerDamageGO(Player *player, GameObject* target_obj, uint32 eventId, uint32 doneBy = 0);
-        virtual void EventSpawnGOSA(Player *owner, Creature* obj, float x, float y, float z);
         virtual void FillInitialWorldStates(WorldPacket& data, uint32& count);
         virtual void EventPlayerClickedOnFlag(Player *source, GameObject* target_obj);
         virtual void HandleKillUnit(Creature* unit, Player* killer);
@@ -232,7 +205,6 @@ class BattleGroundSA : public BattleGround
 
         Team GetDefender() const { return defender; }
         uint8 GetGydController(uint8 gyd) const { return m_Gyd[gyd]; }
-        uint32 GetVehicleFaction(uint8 vehicleType) const { return GetCorrectFactionSA(vehicleType); }
         int32 GetGateStatus(int32 Type) const { return GateStatus[Type]; }
         void RemovePlayer(Player *plr, ObjectGuid guid);
         void HandleAreaTrigger(Player *Source, uint32 Trigger);
@@ -247,6 +219,7 @@ class BattleGroundSA : public BattleGround
         uint32 Round_timer;
         uint32 TimeST2Round;
         bool shipsStarted;
+        bool shipsSpawned;
         bool relicGateDestroyed;
         uint32 shipsTimer;
         uint32 pillarOpenTimer;
@@ -260,8 +233,9 @@ class BattleGroundSA : public BattleGround
         // Send packet to player for destroy boats (client part)
         void SendTransportsRemove(Player * player);
         /* For SendWarningToAll */
-        void SendWarningToAllSA(uint8 gyd, int status, Team team, bool isDoor = false, int door = 0, bool destroyed = false);
+        void SendWarningToAllSA(uint8 gyd, Team team, bool isDoor = false, int door = NULL, bool destroyed = false);
         /* For vehicle's faction*/
+        uint32 GetVehicleFaction(uint8 vehicleType) const { return GetCorrectFactionSA(vehicleType); }
         uint32 GetCorrectFactionSA(uint8 vehicleType) const;
         /* This teleports player to correct loc in function of BG status and it resurects player if necesary */
         void TeleportPlayerToCorrectLoc(Player *player, bool resetBattle = false);
@@ -270,8 +244,8 @@ class BattleGroundSA : public BattleGround
         bool isDemolisherDestroyed[2];
 
     private:
-        uint8               m_Gyd[BG_SA_GRY_MAX];
-        uint8               m_prevGyd[BG_SA_GRY_MAX];   // used for performant wordlstate-updating
+        uint8 m_Gyd[BG_SA_GRY_MAX];
+        uint8 m_prevGyd[BG_SA_GRY_MAX];   // used for performant wordlstate-updating
         BG_SA_RoundScore RoundScores[2];
         /* Gameobject spawning/despawning */
         void _CreateBanner(uint8 node, uint8 type, uint8 teamIndex, bool delay);
@@ -283,6 +257,14 @@ class BattleGroundSA : public BattleGround
         void _GydOccupied(uint8 node,Team team);
         void ToggleTimer();
         void ResetWorldStates();
+        void HandleInteractivity();
+        /* check to avoid to much messages */
+        bool GateRoomAncientShrineDamaged;
+        bool GateGreenEmeraldDamaged;
+        bool GateBlueSaphireDamaged;
+        bool GateMauveAmethystDamaged;
+        bool GateRedSunDamaged;
+        bool GateYellowMoonDamaged;
 };
 
 #endif

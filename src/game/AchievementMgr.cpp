@@ -38,6 +38,8 @@
 #include "BattleGround.h"
 #include "BattleGroundAB.h"
 #include "BattleGroundAV.h"
+#include "BattleGroundEY.h"
+#include "BattleGroundIC.h"
 #include "BattleGroundSA.h"
 #include "BattleGroundWS.h"
 #include "Map.h"
@@ -99,6 +101,7 @@ bool AchievementCriteriaRequirement::IsValid(AchievementCriteriaEntry const* cri
         case ACHIEVEMENT_CRITERIA_TYPE_WIN_DUEL:
         case ACHIEVEMENT_CRITERIA_TYPE_LOOT_TYPE:
         case ACHIEVEMENT_CRITERIA_TYPE_CAST_SPELL2:
+        case ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE:
         case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL:
         case ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS:
             break;
@@ -992,6 +995,28 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                                 continue;
                             break;
                         }
+                        case 220:               // AV, win while your towers and captain are ok, enemy towers destroyed (alliance)
+                        case 873:               // AV, win while your towers and captain are ok, enemy towers destroyed (horde)
+                        {
+                            if (bg->GetTypeID(true) != BATTLEGROUND_AV)
+                                continue;
+
+                            int8 team = bg->GetTeamIndexByTeamId(GetPlayer()->GetTeam());
+                            if(!((BattleGroundAV*)bg)->hasAllTowers(team))
+                                continue;
+                            break;
+                        }
+                        case 3851:              // IoC, win while controlling each 5 nodes (alliance)
+                        case 4177:              // IoC, win while controlling each 5 nodes (horde)
+                        {
+                            if (bg->GetTypeID(true) != BATTLEGROUND_IC)
+                                continue;
+
+                            int8 team = bg->GetTeamIndexByTeamId(GetPlayer()->GetTeam());
+                            if(!((BattleGroundIC*)bg)->hasAllNodes(team))
+                                continue;
+                            break;
+                        }
                         default:
                         {
                             // those requirements couldn't be found in the dbc
@@ -1030,6 +1055,17 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                                 continue;
 
                             if (((BattleGroundSA*)bg)->isDemolisherDestroyed[GetPlayer()->GetTeam() == ALLIANCE ? 0 : 1])
+                                continue;
+                            break;
+                        }
+                        case 3846:                          // IoC, win while controlling each 5 nodes (alliance)
+                        case 4176:                          // IoC, win while controlling each 5 nodes (horde)
+                        {
+                            if (bg->GetTypeID(true) != BATTLEGROUND_IC)
+                                continue;
+
+                            int8 team = bg->GetTeamIndexByTeamId(GetPlayer()->GetTeam());
+                            if(!((BattleGroundIC*)bg)->hasAllResNodes(team))
                                 continue;
                             break;
                         }
@@ -1894,45 +1930,85 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
             }
             case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA:
             {
-                if(GetPlayer()->GetAreaId() != achievementCriteria->honorable_kill_at_area.areaID)
+                if (GetPlayer()->GetAreaId() != achievementCriteria->honorable_kill_at_area.areaID)
                     continue;
 
-                SetCriteriaProgress(achievementCriteria, achievement, miscvalue1, PROGRESS_ACCUMULATE);
+                change = miscvalue1;
+                progressType = PROGRESS_ACCUMULATE;
                 break;
             }
             case ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE:
             {
-                BattleGround* bg = GetPlayer()->GetBattleGround();
-                if (!miscvalue1 || !miscvalue2 || !bg)
+                if (!miscvalue1 || !miscvalue2 || miscvalue2 != achievementCriteria->objective_capture.captureID)
                     continue;
 
-                if(achievementCriteria->objective_capture.captureID != miscvalue2)
+                BattleGround* bg = GetPlayer()->GetBattleGround();
+                if (!bg)
                     continue;
 
                 // some hardcoded requirements
-                switch(achievementCriteria->referredAchievement)
+                switch(achievementCriteria->objective_capture.captureID)
                 {
-                    case 204:                   // WS, capture 3 flags without dying
+                    case WS_OBJECTIVE_CAPTURE_FLAG:      // WS, capture a flag
                     {
-                        if(bg->GetPlayerScore(GetPlayer(),SCORE_DEATHS) != 0)
+                        if (bg->GetTypeID(true) != BATTLEGROUND_WS)
+                            continue;
+                                                         // WS, capture 3 flags without dying
+                        if (achievementCriteria->referredAchievement == 204)
+                        {
+                            if (!(bg->GetPlayerScore(GetPlayer(), SCORE_DEATHS) == 0 && bg->GetPlayerScore(GetPlayer(), SCORE_FLAG_CAPTURES) >= 3))
+                                continue;
+                        }
+                        break;
+                    }
+                    case WS_OBJECTIVE_RETURN_FLAG:       // WS, return a flag
+                    {
+                        if (bg->GetTypeID(true) != BATTLEGROUND_WS)
                             continue;
                         break;
                     }
-                    case 211:                   // EY, capture flag while controling all 4 bases
+                    case AV_OBJECTIVE_ASSAULT_TOWER:     // AV, assault a tower
+                    case AV_OBJECTIVE_ASSAULT_GRAVEYARD: // AV, assault a graveyard
+                    case AV_OBJECTIVE_DEFEND_TOWER:      // AV, defend a tower
+                    case AV_OBJECTIVE_DEFEND_GRAVEYARD:  // AV, defend a graveyard
                     {
-                        if(!bg->IsAllNodesConrolledByTeam(GetPlayer()->GetTeam()))
+                        if (bg->GetTypeID(true) != BATTLEGROUND_AV)
                             continue;
                         break;
                     }
-                    case 216:                    // EY, capture 3 flags without dying
+                    case AB_OBJECTIVE_ASSAULT_BASE:      // AB, assault a base
+                    case AB_OBJECTIVE_DEFEND_BASE:       // AB, defend a base
                     {
-                        if(bg->GetPlayerScore(GetPlayer(),SCORE_DEATHS) != 0)
+                        if (bg->GetTypeID(true) != BATTLEGROUND_AB)
                             continue;
+                        break;
+                    }
+                    case EY_OBJECTIVE_CAPTURE_FLAG:      // EY, capture a flag
+                    {
+                        if (bg->GetTypeID(true) != BATTLEGROUND_EY)
+                            continue;
+
+                        switch(achievementCriteria->referredAchievement)
+                        {
+                            case 211:                    // EY, capture flag while controling all 4 bases
+                            {
+                                if (!bg->IsAllNodesConrolledByTeam(GetPlayer()->GetTeam()))
+                                    continue;
+                                break;
+                            }
+                            case 216:                    // EY, capture 3 flags without dying
+                            {
+                                if (!(bg->GetPlayerScore(GetPlayer(), SCORE_DEATHS) == 0 && bg->GetPlayerScore(GetPlayer(), SCORE_FLAG_CAPTURES) >= 3))
+                                    continue;
+                                break;
+                            }
+                        }
                         break;
                     }
                 }
 
-                SetCriteriaProgress(achievementCriteria, achievement, miscvalue1, PROGRESS_ACCUMULATE);
+                change = miscvalue1;
+                progressType = PROGRESS_ACCUMULATE;
                 break;
             }
             case ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_TEAM_RATING:
@@ -2376,11 +2452,6 @@ void AchievementMgr::CompletedAchievement(AchievementEntry const* achievement)
     DETAIL_LOG("AchievementMgr::CompletedAchievement(%u)", achievement->ID);
     if(achievement->flags & ACHIEVEMENT_FLAG_COUNTER || m_completedAchievements.find(achievement->ID)!=m_completedAchievements.end())
         return;
-
-    /** World of Warcraft Armory **/
-    if (sWorld.getConfig(CONFIG_BOOL_ARMORY_SUPPORT))
-        GetPlayer()->WriteWowArmoryDatabaseLog(1, achievement->ID);
-    /** World of Warcraft Armory **/
 
     SendAchievementEarned(achievement);
     CompletedAchievementData& ca =  m_completedAchievements[achievement->ID];

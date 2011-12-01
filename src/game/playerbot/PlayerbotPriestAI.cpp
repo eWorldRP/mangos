@@ -1,3 +1,21 @@
+/*
+* Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+* Copyright (C) 2011 IXC_Project // MangosR2
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
 
 #include "PlayerbotPriestAI.h"
 
@@ -6,10 +24,13 @@ class PlayerbotAI;
 PlayerbotPriestAI::PlayerbotPriestAI(Player* const master, Player* const bot, PlayerbotAI* const ai) : PlayerbotClassAI(master, bot, ai)
 {
     RENEW                         = ai->initSpell(RENEW_1);
-    HEAL                          = ai->initSpell(HEAL_1);
     LESSER_HEAL                   = ai->initSpell(LESSER_HEAL_1);
-    GREATER_HEAL                  = ai->initSpell(GREATER_HEAL_1);
     FLASH_HEAL                    = ai->initSpell(FLASH_HEAL_1);
+    (FLASH_HEAL > 0) ? FLASH_HEAL : FLASH_HEAL = LESSER_HEAL;
+    HEAL                          = ai->initSpell(HEAL_1);
+    (HEAL > 0) ? HEAL : HEAL = FLASH_HEAL;
+    GREATER_HEAL                  = ai->initSpell(GREATER_HEAL_1);
+    (GREATER_HEAL > 0) ? GREATER_HEAL : GREATER_HEAL = HEAL;
     RESURRECTION                  = ai->initSpell(RESURRECTION_1);
     SMITE                         = ai->initSpell(SMITE_1);
     MANA_BURN                     = ai->initSpell(MANA_BURN_1);
@@ -61,6 +82,11 @@ PlayerbotPriestAI::PlayerbotPriestAI(Player* const master, Player* const bot, Pl
 
 PlayerbotPriestAI::~PlayerbotPriestAI() {}
 
+bool PlayerbotPriestAI::DoFirstCombatManeuver(Unit *pTarget)
+{
+    return false;
+}
+
 bool PlayerbotPriestAI::HealTarget(Unit* target)
 {
     PlayerbotAI* ai = GetAI();
@@ -69,7 +95,7 @@ bool PlayerbotPriestAI::HealTarget(Unit* target)
     if (hp >= 80)
         return false;
 
-    if (hp < 25 && FLASH_HEAL && ai->CastSpell(FLASH_HEAL, *target))
+    if (hp < 25 && FLASH_HEAL > 0 && ai->CastSpell(FLASH_HEAL, *target))
         return true;
     else if (hp < 30 && GREATER_HEAL > 0 && ai->CastSpell(GREATER_HEAL, *target))
         return true;
@@ -105,8 +131,6 @@ void PlayerbotPriestAI::DoNextCombatManeuver(Unit *pTarget)
             (ai->GetHealthPercent() < 20 && ai->CastSpell(GREATER_HEAL)) ||
             ai->CastSpell(SMITE);
             return;
-        default:
-            break;
     }
 
     // ------- Non Duel combat ----------
@@ -159,9 +183,9 @@ void PlayerbotPriestAI::DoNextCombatManeuver(Unit *pTarget)
         }
     }
 
-    if (ai->GetCombatOrder() == PlayerbotAI::ORDERS_HEAL ) // && ai->GetMovementOrder() == PlayerbotAI::MOVEMENT_STAY)
+    if (ai->GetCombatOrder() == PlayerbotAI::ORDERS_HEAL)  // && ai->GetMovementOrder() == PlayerbotAI::MOVEMENT_STAY)
         SpellSequence = SPELL_HOLY;
-    else if( ai->GetCombatOrder() == PlayerbotAI::ORDERS_ASSIST ) // && ai->GetMovementOrder() == PlayerbotAI::MOVEMENT_STAY)
+    else if (ai->GetCombatOrder() == PlayerbotAI::ORDERS_ASSIST)  // && ai->GetMovementOrder() == PlayerbotAI::MOVEMENT_STAY)
         SpellSequence = SPELL_SHADOWMAGIC;
     else
         SpellSequence = SPELL_HOLY;
@@ -205,7 +229,7 @@ void PlayerbotPriestAI::DoNextCombatManeuver(Unit *pTarget)
             else
                 LastSpellHoly = 0;
 
-            if(ai->GetCombatOrder() == PlayerbotAI::ORDERS_NONE)
+            if (ai->GetCombatOrder() == PlayerbotAI::ORDERS_NONE)
                 SpellSequence = SPELL_SHADOWMAGIC;
             break;
 
@@ -264,7 +288,7 @@ void PlayerbotPriestAI::DoNextCombatManeuver(Unit *pTarget)
             else
                 LastSpellShadowMagic = 0;
 
-            if(ai->GetCombatOrder() == PlayerbotAI::ORDERS_NONE || ai->GetCombatOrder() == PlayerbotAI::ORDERS_ASSIST)
+            if (ai->GetCombatOrder() == PlayerbotAI::ORDERS_NONE || ai->GetCombatOrder() == PlayerbotAI::ORDERS_ASSIST)
                 SpellSequence = SPELL_DISCIPLINE;
             break;
 
@@ -302,9 +326,9 @@ void PlayerbotPriestAI::DoNextCombatManeuver(Unit *pTarget)
             else
                 LastSpellDiscipline = 0;
 
-            if(ai->GetCombatOrder() == PlayerbotAI::ORDERS_NONE)
+            if (ai->GetCombatOrder() == PlayerbotAI::ORDERS_NONE)
                 SpellSequence = SPELL_HOLY;
-            else if(ai->GetCombatOrder() == PlayerbotAI::ORDERS_ASSIST)
+            else if (ai->GetCombatOrder() == PlayerbotAI::ORDERS_ASSIST)
                 SpellSequence = SPELL_SHADOWMAGIC;
             break;
     }
@@ -361,20 +385,24 @@ void PlayerbotPriestAI::DoNonCombatActions()
     if (master->GetGroup())
     {
         // Buff master with group buffs
-        if (master->isAlive())
-        {
-            if (PRAYER_OF_FORTITUDE && ai->HasSpellReagents(PRAYER_OF_FORTITUDE) && ai->Buff(PRAYER_OF_FORTITUDE, master))
-                return;
+        if (!master->IsInDuel(master))
+            if (master->isAlive())
+            {
+                if (PRAYER_OF_FORTITUDE && ai->HasSpellReagents(PRAYER_OF_FORTITUDE) && ai->Buff(PRAYER_OF_FORTITUDE, master))
+                    return;
 
-            if (PRAYER_OF_SPIRIT && ai->HasSpellReagents(PRAYER_OF_SPIRIT) && ai->Buff(PRAYER_OF_SPIRIT, master))
-                return;
-        }
+                 if (PRAYER_OF_SPIRIT && ai->HasSpellReagents(PRAYER_OF_SPIRIT) && ai->Buff(PRAYER_OF_SPIRIT, master))
+                    return;
+            }
 
         Group::MemberSlotList const& groupSlot = GetMaster()->GetGroup()->GetMemberSlots();
         for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
         {
             Player *tPlayer = sObjectMgr.GetPlayer(itr->guid);
             if (!tPlayer || tPlayer == m_bot)
+                continue;
+
+            if (tPlayer->IsInDuelWith(master))
                 continue;
 
             // first rezz em
@@ -403,7 +431,7 @@ void PlayerbotPriestAI::DoNonCombatActions()
     }
     else
     {
-        if (master->isAlive())
+        if (master->isAlive() && !master->IsInDuel(master))
         {
             if (BuffPlayer(master))
                 return;

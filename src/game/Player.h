@@ -1487,10 +1487,9 @@ class MANGOS_DLL_SPEC Player : public Unit
 
         uint32 GetInGameTime() { return m_ingametime; }
 
-        void SetInGameTime( uint32 time ) { m_ingametime = time; }
-
-        void AddTimedQuest( uint32 quest_id ) { m_timedquests.insert(quest_id); }
-        void RemoveTimedQuest( uint32 quest_id ) { m_timedquests.erase(quest_id); }
+        void SetInGameTime(uint32 time) { m_ingametime = time; }
+        void AddTimedQuest(uint32 quest_id) { m_timedquests.insert(quest_id); }
+        void RemoveTimedQuest(uint32 quest_id) { m_timedquests.erase(quest_id); }
 
         // Playerbot mod
         void chompAndTrim(std::string& str);
@@ -2269,10 +2268,6 @@ class MANGOS_DLL_SPEC Player : public Unit
         uint32 GetSaveTimer() const { return m_nextSave; }
         void   SetSaveTimer(uint32 timer) { m_nextSave = timer; }
 
-        /** World of Warcraft Armory **/
-        void WriteWowArmoryDatabaseLog(uint32 type, uint32 data);
-        /** World of Warcraft Armory **/
-
         // Recall position
         uint32 m_recallMap;
         float  m_recallX;
@@ -2448,6 +2443,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         void SetPlayerbotMgr(PlayerbotMgr* mgr) { assert(!m_playerbotAI && !m_playerbotMgr); m_playerbotMgr=mgr; }
         PlayerbotMgr* GetPlayerbotMgr() { return m_playerbotMgr; }
         void SetBotDeathTimer() { m_deathTimer = 0; }
+        bool IsInDuel(Player const* player) const { return duel && (duel->opponent == player || duel->initiator == player) && duel->startTime != 0; }
 
     protected:
 

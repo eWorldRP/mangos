@@ -1,6 +1,25 @@
+/*
+* Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+* Copyright (C) 2010 Blueboy
+* Copyright (C) 2011 MangosR2 
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
+
 #ifndef _PLAYERBOTAI_H
 #define _PLAYERBOTAI_H
-
 #include "Common.h"
 #include "../QuestDef.h"
 #include "../GameEventMgr.h"
@@ -143,16 +162,17 @@ public:
 
     enum TaskFlags
     {
-        NONE                        = 0x00,
+        NONE                        = 0x00,  // do nothing
         SELL                        = 0x01,  // sell items
         REPAIR                      = 0x02,  // repair items
-        ADD                         = 0x04,  // add auction/quest
-        REMOVE                      = 0x08,  // remove auction
-        RESET                       = 0x10,  // reset all talents
-        WITHDRAW                    = 0x11,  // withdraw item from bank
-        DEPOSIT                     = 0x12,  // deposit item in bank
-        LIST                        = 0x14,  // list quests
-        END                         = 0x18   // turn in quests
+        ADD                         = 0x03,  // add auction
+        REMOVE                      = 0x04,  // remove auction
+        RESET                       = 0x05,  // reset all talents
+        WITHDRAW                    = 0x06,  // withdraw item from bank
+        DEPOSIT                     = 0x07,  // deposit item in bank
+        LIST                        = 0x08,  // list quests
+        END                         = 0x09,  // turn in quests
+        TAKE                        = 0x0A   // take quest
     };
 
     enum AnnounceFlags
@@ -166,7 +186,7 @@ public:
     typedef std::list<taskPair> BotTaskList;
     typedef std::list<enum NPCFlags> BotNPCList;
     typedef std::map<uint32, uint32> BotNeedItem;
-    typedef std::pair<uint32,uint32>talentPair;
+    typedef std::pair<uint32, uint32>talentPair;
     typedef std::list<ObjectGuid> BotLootTarget;
     typedef std::list<uint32> BotLootEntry;
     typedef std::list<uint32> BotSpellList;
@@ -203,17 +223,6 @@ public:
     // This is called from ChatHandler.cpp when there is an incoming message to the bot
     // from a whisper or from the party channel
     void HandleCommand(const std::string& text, Player& fromPlayer);
-
-    // command handlers
-    void HandleQuestDropCommand(std::string &cmd);
-    void HandleQuestCommand(std::string &cmd);
-    void HandleQuestNULLCommand();
-    void HandleEquipCommand(std::string &cmd);
-
-    // command utilities
-    static std::string SplitSubCommand(std::string & cmd); // extracts the first subcommand from the string
-    static void Trim(std::string & cmd);
-    static void ToLower(std::string & cmd);
 
     // This is called by WorldSession.cpp
     // It provides a view of packets normally sent to the client.
@@ -315,6 +324,7 @@ public:
     Item* FindKeyForLockValue(uint32 reqSkillValue);
     Item* FindBombForLockValue(uint32 reqSkillValue);
     Item* FindConsumable(uint32 displayId) const;
+    bool CanStore();
 
     // ******* Actions ****************************************
     // Your handlers can call these actions to make the bot do things.
@@ -344,6 +354,7 @@ public:
     void Feast();
     void InterruptCurrentCastingSpell();
     void GetCombatTarget(Unit* forcedTarged = 0);
+    void GetDuelTarget(Unit* forcedTarget);
     Unit *GetCurrentTarget() { return m_targetCombat; };
     void DoNextCombatManeuver();
     void DoCombatMovement();
@@ -357,7 +368,7 @@ public:
     void SetState(BotState state);
     void SetQuestNeedItems();
     void SetQuestNeedCreatures();
-    void SendQuestNeedList(Player& player);
+    void SendQuestNeedList();
     bool IsInQuestItemList(uint32 itemid) { return m_needItemList.find(itemid) != m_needItemList.end(); };
     bool IsInQuestCreatureList(uint32 id) { return m_needCreatureOrGOList.find(id) != m_needCreatureOrGOList.end(); };
     bool IsItemUseful(uint32 itemid);
@@ -379,7 +390,7 @@ public:
 
     void AcceptQuest(Quest const *qInfo, Player *pGiver);
     void TurnInQuests(WorldObject *questgiver);
-    bool ListQuests(WorldObject* questgiver);
+    void ListQuests(WorldObject* questgiver);
     bool AddQuest(const uint32 entry, WorldObject* questgiver);
 
     bool IsInCombat();

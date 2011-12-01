@@ -323,6 +323,8 @@ bool Map::Add(Player *player)
     if (i_data)
         i_data->OnPlayerEnter(player);
 
+    sLFGMgr.OnPlayerEnterMap(player, this);
+
     return true;
 }
 
@@ -405,7 +407,7 @@ void Map::MessageBroadcast(WorldObject *obj, WorldPacket *msg)
     //we have alot of blinking mobs because monster move packet send is broken...
     MaNGOS::ObjectMessageDeliverer post_man(*obj,msg);
     TypeContainerVisitor<MaNGOS::ObjectMessageDeliverer, WorldTypeMapContainer > message(post_man);
-    cell.Visit(p, message, *this, *obj, GetVisibilityDistance());
+    cell.Visit(p, message, *this, *obj, GetVisibilityDistance(obj));
 }
 
 void Map::MessageDistBroadcast(Player *player, WorldPacket *msg, float dist, bool to_self, bool own_team_only)
@@ -597,6 +599,8 @@ void Map::Remove(Player *player, bool remove)
 {
     if (i_data)
         i_data->OnPlayerLeave(player);
+
+    sLFGMgr.OnPlayerLeaveMap(player, this);
 
     if(remove)
         player->CleanupsBeforeDelete();
@@ -914,7 +918,7 @@ void Map::UpdateObjectVisibility( WorldObject* obj, Cell cell, CellPair cellpair
     cell.SetNoCreate();
     MaNGOS::VisibleChangesNotifier notifier(*obj);
     TypeContainerVisitor<MaNGOS::VisibleChangesNotifier, WorldTypeMapContainer > player_notifier(notifier);
-    cell.Visit(cellpair, player_notifier, *this, *obj, GetVisibilityDistance());
+    cell.Visit(cellpair, player_notifier, *this, *obj, GetVisibilityDistance(obj));
 }
 
 void Map::SendInitSelf( Player * player )
@@ -3088,6 +3092,8 @@ void Map::ScriptsProcess()
                     else
                         pBuddy->SetFlag(UNIT_NPC_FLAGS, step.script->npcFlag.flag);
                 }
+
+                break;
             }
             default:
                 sLog.outError("Unknown SCRIPT_COMMAND_ %u called for script id %u.", step.script->command, step.script->id);
@@ -3476,7 +3482,15 @@ void Map::RemoveAttackersStorageFor(ObjectGuid targetGuid)
 void Map::ForcedUnload()
 {
     sLog.outError("Map::ForcedUnload called for map %u instance %u. Map crushed. Cleaning up...", GetId(), GetInstanceId());
-    Map::PlayerList const& pList = GetPlayers();
+
+    // Immediately cleanup update sets/queues
+    i_objectsToClientUpdate.clear();
+    i_objectsToClientNotUpdate.clear();
+    while (!i_objectsToClientUpdateQueue.empty())
+        i_objectsToClientUpdateQueue.pop();
+
+
+    Map::PlayerList const pList = GetPlayers();
     for (PlayerList::const_iterator itr = pList.begin(); itr != pList.end(); ++itr)
     {
         Player* player = itr->getSource();
@@ -3534,4 +3548,12 @@ void Map::ForcedUnload()
     UnloadAll(true);
 
     SetBroken(false);
+}
+
+float Map::GetVisibilityDistance(WorldObject* obj) const 
+{
+    if (obj && obj->GetObjectGuid().IsGameObject())
+        return (m_VisibleDistance + ((GameObject*)obj)->GetDeterminativeSize());
+    else
+        return m_VisibleDistance; 
 }

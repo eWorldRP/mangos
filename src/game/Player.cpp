@@ -1235,11 +1235,6 @@ void Player::Update( uint32 update_diff, uint32 p_time )
         setAttackTimer(RANGED_ATTACK, (update_diff >= ranged_att ? 0 : ranged_att - update_diff) );
     }
 
-    if (uint32 off_att = getAttackTimer(OFF_ATTACK))
-    {
-        setAttackTimer(OFF_ATTACK, (update_diff >= off_att ? 0 : off_att - update_diff) );
-    }
-
     time_t now = time (NULL);
 
     UpdatePvPFlag(now);
@@ -5774,10 +5769,10 @@ bool Player::UpdateSkillPro(uint16 SkillId, int32 Chance, uint32 step)
     return false;
 }
 
-void Player::UpdateWeaponSkill (WeaponAttackType attType)
+void Player::UpdateWeaponSkill(WeaponAttackType attType)
 {
     // no skill gain in pvp
-    Unit *pVictim = getVictim();
+    Unit* pVictim = getVictim();
     if (pVictim && pVictim->IsCharmerOrOwnerPlayerOrPlayerItself())
         return;
 
@@ -5787,31 +5782,14 @@ void Player::UpdateWeaponSkill (WeaponAttackType attType)
     if (GetShapeshiftForm() == FORM_TREE)
         return;                                             // use weapon but not skill up
 
-    uint32 weapon_skill_gain = sWorld.getConfig(CONFIG_UINT32_SKILL_GAIN_WEAPON);
+    uint32 weaponSkillGain = sWorld.getConfig(CONFIG_UINT32_SKILL_GAIN_WEAPON);
 
-    switch(attType)
-    {
-        case BASE_ATTACK:
-        {
-            Item *tmpitem = GetWeaponForAttack(attType,true,true);
+    Item* pWeapon = GetWeaponForAttack(attType, true, true);
+    if (pWeapon && pWeapon->GetProto()->SubClass != ITEM_SUBCLASS_WEAPON_FISHING_POLE)
+        UpdateSkill(pWeapon->GetSkill(), weaponSkillGain);
+    else if (!pWeapon && attType == BASE_ATTACK)
+        UpdateSkill(SKILL_UNARMED, weaponSkillGain);
 
-            if (!tmpitem)
-                UpdateSkill(SKILL_UNARMED,weapon_skill_gain);
-            else if (tmpitem->GetProto()->SubClass != ITEM_SUBCLASS_WEAPON_FISHING_POLE)
-                UpdateSkill(tmpitem->GetSkill(),weapon_skill_gain);
-            break;
-        }
-        case OFF_ATTACK:
-        case RANGED_ATTACK:
-        {
-            Item *tmpitem = GetWeaponForAttack(attType,true,true);
-            if (tmpitem)
-                UpdateSkill(tmpitem->GetSkill(),weapon_skill_gain);
-            break;
-        }
-        default:
-            break;
-    }
     UpdateAllCritPercentages();
 }
 
@@ -9360,7 +9338,7 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
                 data << uint32(4320) << uint32(1); // 13
                 data << uint32(4323) << uint32(1); // 14
                 data << uint32(4324) << uint32(1); // 15
-                data << uint32(4325) << uint32(1); // 16 
+                data << uint32(4325) << uint32(1); // 16
                 data << uint32(4317) << uint32(1); // 17
 
                 data << uint32(4301) << uint32(1); // 18
@@ -16428,11 +16406,13 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
 
     _LoadBGData(holder->GetResult(PLAYER_LOGIN_QUERY_LOADBGDATA));
 
+    bool player_at_bg = false;
+
     if (m_bgData.bgInstanceID)                              //saved in BattleGround
     {
         BattleGround *currentBg = sBattleGroundMgr.GetBattleGround(m_bgData.bgInstanceID, BATTLEGROUND_TYPE_NONE);
 
-        bool player_at_bg = currentBg && currentBg->IsPlayerInBattleGround(GetObjectGuid());
+        player_at_bg = currentBg && currentBg->IsPlayerInBattleGround(GetObjectGuid());
 
         if (player_at_bg && currentBg->GetStatus() != STATUS_WAIT_LEAVE)
         {
@@ -16451,7 +16431,10 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
         {
             // leave bg
             if (player_at_bg)
+            {
                 currentBg->RemovePlayerAtLeave(GetObjectGuid(), false, true);
+                player_at_bg = false;
+            }
 
             // move to bg enter point
             const WorldLocation& _loc = GetBattleGroundEntryPoint();
@@ -16556,8 +16539,8 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
     // load the player's map here if it's not already loaded
     SetMap(sMapMgr.CreateMap(GetMapId(), this));
 
-    // if the player is in an instance and it has been reset in the meantime teleport him to the entrance
-    if (GetInstanceId() && !state)
+    // if the player not at BG and is in an instance and it has been reset in the meantime teleport him to the entrance
+    if (!player_at_bg && GetInstanceId() && !state)
     {
         AreaTrigger const* at = sObjectMgr.GetMapEntranceTrigger(GetMapId());
         if (at)
@@ -17921,7 +17904,7 @@ void Player::_LoadBoundInstances(QueryResult *result)
 
             // since non permanent binds are always solo bind, they can always be reset
             DungeonPersistentState *state = (DungeonPersistentState*)sMapPersistentStateMgr.AddPersistentState(mapEntry, instanceId, Difficulty(difficulty), resetTime, !perm, true);
-            if (state) 
+            if (state)
                 BindToInstance(state, perm, true, extend);
         } while(result->NextRow());
         delete result;
@@ -18234,20 +18217,6 @@ void Player::SaveToDB()
 
     DEBUG_FILTER_LOG(LOG_FILTER_PLAYER_STATS, "The value of player %s at save: ", m_name.c_str());
     outDebugStatsValues();
-
-    /** World of Warcraft Armory **/
-    if (sWorld.getConfig(CONFIG_BOOL_ARMORY_SUPPORT))
-    {
-        std::ostringstream ps;
-        ps << "REPLACE INTO armory_character_stats (guid,data) VALUES ('" << GetGUIDLow() << "', '";
-        for(uint16 i = 0; i < m_valuesCount; ++i )
-        {
-            ps << GetUInt32Value(i) << " ";
-        }
-        ps << "')";
-        CharacterDatabase.Execute( ps.str().c_str() );
-    }
-    /** World of Warcraft Armory **/
 
     CharacterDatabase.BeginTransaction();
 
@@ -24575,45 +24544,6 @@ bool Player::IsReferAFriendLinked(Player* target)
 
     return false;
 }
-
-/** World of Warcraft Armory **/
-void Player::WriteWowArmoryDatabaseLog(uint32 type, uint32 data)
-{
-    if (!sWorld.getConfig(CONFIG_BOOL_ARMORY_SUPPORT))
-        return;
-    /*
-        Log types:
-        1 - achievement feed
-        2 - loot feed
-        3 - boss kill feed
-    */
-    uint32 pGuid = GetGUIDLow();
-    sLog.outDetail("WoWArmory: write feed log (guid: %u, type: %u, data: %u", pGuid, type, data);
-    if (type <= 0 || type > 3)    // Unknown type
-    {
-        sLog.outError("WoWArmory: unknown type id: %d, ignore.", type);
-        return;
-    }
-    if (type == 3)    // Do not write same bosses many times - just update counter.
-    {
-        uint8 Difficulty = GetMap()->GetDifficulty();
-        QueryResult *result = CharacterDatabase.PQuery("SELECT counter FROM armory_character_feed_log WHERE guid='%u' AND type=3 AND data='%u' AND difficulty='%u' LIMIT 1", pGuid, data, Difficulty);
-        if (result)
-        {
-            CharacterDatabase.PExecute("UPDATE armory_character_feed_log SET counter=counter+1, date=UNIX_TIMESTAMP(NOW()) WHERE guid='%u' AND type=3 AND data='%u' AND difficulty='%u' LIMIT 1", pGuid, data, Difficulty);
-        }
-        else
-        {
-            CharacterDatabase.PExecute("INSERT INTO armory_character_feed_log (guid, type, data, date, counter, difficulty) VALUES('%u', '%d', '%u', UNIX_TIMESTAMP(NOW()), 1, '%u')", pGuid, type, data, Difficulty);
-        }
-        delete result;
-    }
-    else
-    {
-        CharacterDatabase.PExecute("REPLACE INTO armory_character_feed_log (guid, type, data, date, counter) VALUES('%u', '%d', '%u', UNIX_TIMESTAMP(NOW()), 1)", pGuid, type, data);
-    }
-}
-/** World of Warcraft Armory **/
 
 AreaLockStatus Player::GetAreaTriggerLockStatus(AreaTrigger const* at, Difficulty difficulty)
 {

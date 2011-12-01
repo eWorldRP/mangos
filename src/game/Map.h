@@ -129,7 +129,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         void MessageDistBroadcast(Player *, WorldPacket *, float dist, bool to_self, bool own_team_only = false);
         void MessageDistBroadcast(WorldObject *, WorldPacket *, float dist);
 
-        float GetVisibilityDistance() const { return m_VisibleDistance; }
+        float GetVisibilityDistance(WorldObject* obj = NULL) const;
         //function for setting up visibility distance for maps on per-type/per-Id basis
         virtual void InitVisibilityDistance();
 
@@ -311,7 +311,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
             return i_grids[x][y];
         }
 
-        bool isGridObjectDataLoaded(uint32 x, uint32 y) const { return (getNGrid(x,y) ? getNGrid(x,y)->isGridObjectDataLoaded() : false); }
+        bool isGridObjectDataLoaded(uint32 x, uint32 y) const { return getNGrid(x,y) ? getNGrid(x,y)->isGridObjectDataLoaded() : false; }
         void setGridObjectDataLoaded(bool pLoaded, uint32 x, uint32 y) { getNGrid(x,y)->setGridObjectDataLoaded(pLoaded); }
 
         void setNGrid(NGridType* grid, uint32 x, uint32 y);

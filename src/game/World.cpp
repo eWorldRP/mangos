@@ -624,8 +624,21 @@ void World::LoadConfigSettings(bool reload)
     setConfigMinMax(CONFIG_UINT32_PLAYERBOT_MAXBOTGAPLEVEL, "PlayerbotAI.MaxDiffBotLevel", 5, 0, 80);
 //
     setConfigMinMax(CONFIG_UINT32_PLAYERBOT_RESTRICTLEVEL, "PlayerbotAI.RestrictBotLevel", getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL), 1, getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL));
+    setConfigMinMax(CONFIG_UINT32_PLAYERBOT_MINBOTLEVEL, "PlayerbotAI.MinBotLevel", 1, 1, getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL));
     setConfig(CONFIG_FLOAT_PLAYERBOT_MINDISTANCE, "PlayerbotAI.FollowDistanceMin", 0.5f);
     setConfig(CONFIG_FLOAT_PLAYERBOT_MAXDISTANCE, "PlayerbotAI.FollowDistanceMax", 1.0f);
+
+    setConfig(CONFIG_BOOL_PLAYERBOT_ALLOW_SUMMON_OPPOSITE_FACTION, "PlayerbotAI.AllowSummonOppositeFaction", false);
+    setConfig(CONFIG_BOOL_PLAYERBOT_COLLECT_COMBAT, "PlayerbotAI.Collect.Combat", true);
+    setConfig(CONFIG_BOOL_PLAYERBOT_COLLECT_QUESTS, "PlayerbotAI.Collect.Quest", true);
+    setConfig(CONFIG_BOOL_PLAYERBOT_COLLECT_PROFESSION, "PlayerbotAI.Collect.Profession", true);
+    setConfig(CONFIG_BOOL_PLAYERBOT_COLLECT_LOOT, "PlayerbotAI.Collect.Loot", true);
+    setConfig(CONFIG_BOOL_PLAYERBOT_COLLECT_SKIN, "PlayerbotAI.Collect.Skin", true);
+    setConfig(CONFIG_BOOL_PLAYERBOT_COLLECT_OBJECTS, "PlayerbotAI.Collect.Objects", true);
+    setConfig(CONFIG_BOOL_PLAYERBOT_SELL_TRASH, "PlayerbotAI.SellGarbage", true);
+
+    setConfig(CONFIG_BOOL_PLAYERBOT_SHAREDBOTS, "PlayerbotAI.SharedBots", true);
+
 
     setConfig(CONFIG_BOOL_LFG_ENABLE, "LFG.Enable", false);
     setConfig(CONFIG_BOOL_LFR_ENABLE, "LFR.Enable", false);
@@ -637,6 +650,8 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_BOOL_CHECK_GO_IN_PATH, "CheckGOInPath", false);
 
     setConfigMinMax(CONFIG_UINT32_GEAR_CALC_BASE, "Player.GSCalculationBase", 190, 1, 384);
+
+    setConfigMinMax(CONFIG_FLOAT_CROWDCONTROL_HP_BASE, "CrowdControlHPBase", 0.1f, 0.0f, 1.0f);
 
     setConfigMinMax(CONFIG_UINT32_START_PLAYER_MONEY, "StartPlayerMoney", 0, 0, MAX_MONEY_AMOUNT);
 
@@ -856,7 +871,6 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_BOOL_RAID_FLAGS_UNIQUE,      "RaidFlags.Unique", false);
 
     setConfig(CONFIG_BOOL_ALLOW_FLIGHT_ON_OLD_MAPS, "AllowFlightOnOldMaps", false);
-    setConfig(CONFIG_BOOL_ARMORY_SUPPORT, "WOWArmorySupport", false);
 
     m_relocation_ai_notify_delay = sConfig.GetIntDefault("Visibility.AIRelocationNotifyDelay", 1000u);
     m_relocation_lower_limit_sq  = pow(sConfig.GetFloatDefault("Visibility.RelocationLowerLimit",10), 2);
@@ -1145,6 +1159,9 @@ void World::SetInitialWorldSettings()
 
     sLog.outString( "Loading Spell Proc Item Enchant..." );
     sSpellMgr.LoadSpellProcItemEnchant();                   // must be after LoadSpellChains
+
+    sLog.outString( "Loading Spell Linked definitions..." );
+    sSpellMgr.LoadSpellLinked();                            // must be after LoadSpellChains
 
     sLog.outString( "Loading Aggro Spells Definitions...");
     sSpellMgr.LoadSpellThreats();

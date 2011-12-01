@@ -36,11 +36,11 @@ class Transport : public GameObject
         bool AddPassenger(Player* passenger);
         bool RemovePassenger(Player* passenger);
 
-        typedef std::set<Player*> PlayerSet;
-        PlayerSet const& GetPassengers() const { return m_passengers; }
-
         void BuildStartMovePacket(Map const *targetMap);
         void BuildStopMovePacket(Map const *targetMap);
+
+        typedef std::set<Player*> PlayerSet;
+        PlayerSet const& GetPassengers() const { return m_passengers; }
 
     private:
         struct WayPoint

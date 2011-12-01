@@ -102,7 +102,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS]=
     &Aura::HandleAuraTrackResources,                        // 45 SPELL_AURA_TRACK_RESOURCES
     &Aura::HandleUnused,                                    // 46 SPELL_AURA_46 (used in test spells 54054 and 54058, and spell 48050) (3.0.8a-3.2.2a)
     &Aura::HandleAuraModParryPercent,                       // 47 SPELL_AURA_MOD_PARRY_PERCENT
-    &Aura::HandleNULL,                                      // 48 SPELL_AURA_48 spell Napalm (area damage spell with additional delayed damage effect)
+    &Aura::HandleNoImmediateEffect,                         // 48 SPELL_AURA_PERIODIC_TRIGGER_BY_CLIENT (Client periodic trigger spell by self (3 spells in 3.3.5a)). implemented in pet/player cast chains.
     &Aura::HandleAuraModDodgePercent,                       // 49 SPELL_AURA_MOD_DODGE_PERCENT
     &Aura::HandleNoImmediateEffect,                         // 50 SPELL_AURA_MOD_CRITICAL_HEALING_AMOUNT implemented in Unit::SpellCriticalHealingBonus
     &Aura::HandleAuraModBlockPercent,                       // 51 SPELL_AURA_MOD_BLOCK_PERCENT
@@ -380,7 +380,7 @@ static AuraType const frozenAuraTypes[] = { SPELL_AURA_MOD_ROOT, SPELL_AURA_MOD_
 
 Aura::Aura(AuraClassType type, SpellEntry const* spellproto, SpellEffectIndex eff, int32 *currentBasePoints, SpellAuraHolderPtr holder, Unit *target, Unit *caster, Item* castItem) :
 m_classType(type),m_periodicTimer(0), m_periodicTick(0), m_removeMode(AURA_REMOVE_BY_DEFAULT),
-m_effIndex(eff), m_positive(false), m_isPeriodic(false), m_isAreaAura(false),
+m_effIndex(eff), m_positive(false), m_isPeriodic(false), m_isAreaAura(false), m_deleted(false),
 m_isPersistent(false), m_in_use(0), m_spellAuraHolder(holder)
 {
     MANGOS_ASSERT(target);
@@ -445,6 +445,13 @@ m_isPersistent(false), m_in_use(0), m_spellAuraHolder(holder)
     // Start periodic on next tick or at aura apply
     if (!(spellproto->AttributesEx5 & SPELL_ATTR_EX5_START_PERIODIC_AT_APPLY))
         m_periodicTimer = m_modifier.periodictime;
+
+    // Calculate CrowdControl damage start value
+    if (IsCrowdControlAura(m_modifier.m_auraname))
+    {
+        if (uint32 cc_base_damage = CalculateCrowdControlBreakDamage())
+            m_modifier.m_baseamount = cc_base_damage;
+    }
 
     m_stacking = IsEffectStacking();
 
@@ -777,7 +784,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
 
             for(Spell::UnitList::iterator tIter = targets.begin(); tIter != targets.end(); tIter++)
             {
-                // flag for seelction is need apply aura to current iteration target
+                // flag for selection is need apply aura to current iteration target
                 bool apply = true;
 
 // patch might of mograine              
@@ -788,38 +795,48 @@ void Aura::AreaAuraUpdate(uint32 diff)
 
                 // we need ignore present caster self applied are auras sometime
                 // in cases if this only auras applied for spell effect
-                Unit::SpellAuraHolderBounds spair = (*tIter)->GetSpellAuraHolderBounds(GetId());
-                for(Unit::SpellAuraHolderMap::const_iterator i = spair.first; i != spair.second; ++i)
+                Unit* i_target = *tIter;
+                if (!i_target)
+                    continue;
+
+                if (i_target->IsImmuneToSpell(GetSpellProto()))
+                    continue;
+                else
                 {
-                    SpellAuraHolderPtr holder = i->second;
-                    if (!holder || holder->IsDeleted())
-                        continue;
-
-                    Aura *aur = holder->GetAuraByEffectIndex(m_effIndex);
-
-                    if (!aur)
-                        continue;
-
-                    switch(m_areaAuraType)
+                    MAPLOCK_READ(i_target,MAP_LOCK_TYPE_AURAS);
+                    Unit::SpellAuraHolderBounds spair = i_target->GetSpellAuraHolderBounds(GetId());
+                    for(Unit::SpellAuraHolderMap::const_iterator i = spair.first; i != spair.second; ++i)
                     {
-                        case AREA_AURA_ENEMY:
-                            // non caster self-casted auras (non stacked)
-                            if (aur->GetModifier()->m_auraname != SPELL_AURA_NONE)
+                        SpellAuraHolderPtr holder = i->second;
+                        if (!holder || holder->IsDeleted())
+                            continue;
+
+                        Aura *aur = holder->GetAuraByEffectIndex(m_effIndex);
+
+                        if (!aur)
+                            continue;
+
+                        switch(m_areaAuraType)
+                        {
+                            case AREA_AURA_ENEMY:
+                                // non caster self-casted auras (non stacked)
+                                if (aur->GetModifier()->m_auraname != SPELL_AURA_NONE)
+                                    apply = false;
+                                break;
+                            case AREA_AURA_RAID:
+                                // non caster self-casted auras (stacked from diff. casters)
+                                if (aur->GetModifier()->m_auraname != SPELL_AURA_NONE  || i->second->GetCasterGuid() == GetCasterGuid())
+                                    apply = false;
+                                break;
+                            default:
+                                // in generic case not allow stacking area auras
                                 apply = false;
-                            break;
-                        case AREA_AURA_RAID:
-                            // non caster self-casted auras (stacked from diff. casters)
-                            if (aur->GetModifier()->m_auraname != SPELL_AURA_NONE  || i->second->GetCasterGuid() == GetCasterGuid())
-                                apply = false;
-                            break;
-                        default:
-                            // in generic case not allow stacking area auras
-                            apply = false;
+                                break;
+                        }
+
+                        if(!apply)
                             break;
                     }
-
-                    if(!apply)
-                        break;
                 }
 
                 if(!apply)
@@ -832,18 +849,17 @@ void Aura::AreaAuraUpdate(uint32 diff)
                     if (actualSpellInfo != GetSpellProto())
                         actualBasePoints = actualSpellInfo->CalculateSimpleValue(m_effIndex);
 
-                    SpellAuraHolderPtr holder = (*tIter)->GetSpellAuraHolder(actualSpellInfo->Id, GetCasterGuid());
+                    SpellAuraHolderPtr holder = i_target->GetSpellAuraHolder(actualSpellInfo->Id, GetCasterGuid());
 
                     if (!holder || holder->IsDeleted())
                     {
-                        SpellAuraHolderPtr newholder = CreateSpellAuraHolder(actualSpellInfo, (*tIter), caster);
+                        SpellAuraHolderPtr newholder = CreateSpellAuraHolder(actualSpellInfo, i_target, caster);
                         newholder->SetAuraDuration(GetAuraDuration());
-                        Aura* aura = newholder->CreateAura(AURA_CLASS_AREA_AURA, m_effIndex, &actualBasePoints, newholder, (*tIter), caster, NULL);
-                        (*tIter)->AddSpellAuraHolder(newholder);
+                        Aura* aura = newholder->CreateAura(AURA_CLASS_AREA_AURA, m_effIndex, &actualBasePoints, newholder, i_target, caster, NULL);
+                        i_target->AddSpellAuraHolder(newholder);
                     }
                     else
                     {
-
                         holder->SetAuraDuration(GetAuraDuration());
                         Aura* aura = holder->GetAuraByEffectIndex(m_effIndex);
                         if (aura)
@@ -856,8 +872,8 @@ void Aura::AreaAuraUpdate(uint32 diff)
                         }
                         else
                         {
-                            Aura* aura = holder->CreateAura(AURA_CLASS_AREA_AURA, m_effIndex, &actualBasePoints, holder, (*tIter), caster, NULL);
-                            (*tIter)->AddAuraToModList(aura);
+                            Aura* aura = holder->CreateAura(AURA_CLASS_AREA_AURA, m_effIndex, &actualBasePoints, holder, i_target, caster, NULL);
+                            i_target->AddAuraToModList(aura);
                             holder->SetInUse(true);
                             aura->ApplyModifier(true,true);
                             holder->SetInUse(false);
@@ -1009,12 +1025,14 @@ bool Aura::CanProcFrom(SpellEntry const *spell, uint32 procFlag, uint32 EventPro
                 else
                     return false;
             }
-            else // Passive spells hits here only if resist/reflect/immune/evade
-            {
-                // Passive spells can`t trigger if need hit (exclude cases when procExtra include non-active flags)
-                if ((EventProcEx & (PROC_EX_NORMAL_HIT|PROC_EX_CRITICAL_HIT) & procEx) && !active)
+            // Passive spells hits here only if resist/reflect/immune/evade
+            // Passive spells can`t trigger if need hit (exclude cases when procExtra include non-active flags)
+            else if ((EventProcEx & (PROC_EX_NORMAL_HIT|PROC_EX_CRITICAL_HIT) & procEx) && !active)
                     return false;
-            }
+            // Custom procs with aura apply/fade (must fit in aura mask, if exists, independent from SchoolMask)
+            else if (procFlag & PROC_FLAG_ON_AURA_APPLY || procFlag & PROC_FLAG_ON_AURA_FADE)
+                    if (mask && !isAffectedOnSpell(spell))
+                        return false;
         }
         return true;
     }
@@ -2464,6 +2482,9 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         target->CastSpell(target, 54148, true);   //Cast Choose Target
                         target->CastSpell(target, 48331, true);   //Cast Swirl Sword
                         target->CastSpell(target, 54159, true);   //Cast Remove Equipment
+                        return;
+                    case 43885:                             // Headless Horseman - Horseman Laugh, Maniacal
+                        target->PlayDirectSound(11965);     // triggered by spells delaying laugh
                         return;
                     case 50756:                             // Drakos Shpere Passive
                         target->CastSpell(target, 50758, true);
@@ -5612,10 +5633,6 @@ void Aura::HandleAuraModUseNormalSpeed(bool /*apply*/, bool Real)
 void Aura::HandleModMechanicImmunity(bool apply, bool /*Real*/)
 {
     uint32 misc  = m_modifier.m_miscvalue;
-    // Forbearance
-    // in DBC wrong mechanic immune since 3.0.x
-    if (GetId() == 25771)
-        misc = MECHANIC_IMMUNE_SHIELD;
 
     Unit *target = GetTarget();
 
@@ -8239,70 +8256,7 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
     }
     else
     {
-        if (caster &&
-            // Power Word: Shield
-            spellProto->SpellFamilyName == SPELLFAMILY_PRIEST && spellProto->Mechanic == MECHANIC_SHIELD &&
-            spellProto->SpellFamilyFlags.test<CF_PRIEST_POWER_WORD_SHIELD>() &&
-            // completely absorbed or dispelled
-            (m_removeMode == AURA_REMOVE_BY_SHIELD_BREAK || m_removeMode == AURA_REMOVE_BY_DISPEL))
-        {
-            Unit::AuraList const& vDummyAuras = caster->GetAurasByType(SPELL_AURA_DUMMY);
-            for(Unit::AuraList::const_iterator itr = vDummyAuras.begin(); itr != vDummyAuras.end(); ++itr)
-            {
-                SpellEntry const* vSpell = (*itr)->GetSpellProto();
-
-                // Rapture (main spell)
-                if (vSpell->SpellFamilyName == SPELLFAMILY_PRIEST && vSpell->SpellIconID == 2894 && vSpell->Effect[EFFECT_INDEX_1])
-                {
-                    switch((*itr)->GetEffIndex())
-                    {
-                        case EFFECT_INDEX_0:
-                        {
-                            // energize caster
-                            int32 manapct1000 = 5 * ((*itr)->GetModifier()->m_amount + sSpellMgr.GetSpellRank(vSpell->Id));
-                            int32 basepoints0 = caster->GetMaxPower(POWER_MANA) * manapct1000 / 1000;
-                            caster->CastCustomSpell(caster, 47755, &basepoints0, NULL, NULL, true);
-                            break;
-                        }
-                        case EFFECT_INDEX_1:
-                        {
-                            // energize target
-                            if (!roll_chance_i((*itr)->GetModifier()->m_amount) || caster->HasAura(63853))
-                                break;
-
-                            switch(target->getPowerType())
-                            {
-                                case POWER_RUNIC_POWER:
-                                    target->CastSpell(target, 63652, true, NULL, NULL, GetCasterGuid());
-                                    break;
-                                case POWER_RAGE:
-                                    target->CastSpell(target, 63653, true, NULL, NULL, GetCasterGuid());
-                                    break;
-                                case POWER_MANA:
-                                    {
-                                        int32 basepoints0 = target->GetMaxPower(POWER_MANA) * 2 / 100;
-                                        target->CastCustomSpell(target, 63654, &basepoints0, NULL, NULL, true);
-                                        break;
-                                    }
-                                case POWER_ENERGY:
-                                    target->CastSpell(target, 63655, true, NULL, NULL, GetCasterGuid());
-                                    break;
-                                default:
-                                    break;
-                            }
-
-                            //cooldown aura
-                            caster->CastSpell(caster, 63853, true);
-                            break;
-                        }
-                        default:
-                            sLog.outError("Changes in R-dummy spell???: effect 3");
-                            break;
-                    }
-                }
-            }
-        }
-        else if (caster && caster->GetTypeId() == TYPEID_PLAYER && spellProto->Id == 47788 &&
+        if (caster && caster->GetTypeId() == TYPEID_PLAYER && spellProto->Id == 47788 &&
             m_removeMode == AURA_REMOVE_BY_EXPIRE)
         {
             if (Aura *aur = caster->GetAura(63231, EFFECT_INDEX_0))
@@ -9415,7 +9369,7 @@ void Aura::PeriodicDummyTick()
 
                     if (InstanceData* data = target->GetInstanceData())
                     {
-                        if (Creature* pSpike = target->GetMap()->GetCreature(data->GetData64(34660)))
+                        if (Creature* pSpike = target->GetMap()->GetCreature(data->GetGuid(34660)))
                             pSpike->AddThreat(target, 1000000.0f);
                     }
                     return;
@@ -9860,6 +9814,14 @@ void Aura::HandleAuraLinked(bool apply, bool Real)
             int32 bp1 = int32(((float)spellInfo->EffectBasePoints[EFFECT_INDEX_1] + bonus) * 100);
             int32 bp2 = int32(((float)spellInfo->EffectBasePoints[EFFECT_INDEX_2] + bonus) * 100);
 
+            // don't lower stats of vehicle, if GS player below then calculation base
+            if (bp0 < 0)
+                bp0 = 0;
+            if (bp1 < 0)
+                bp1 = 0;
+            if (bp2 < 0)
+                bp2 = 0;
+
             pTarget->CastCustomSpell(pTarget, spellInfo, &bp0, &bp1, &bp2, true, NULL, this, GetCasterGuid(), GetSpellProto());
             pTarget->SetHealth(uint32((float)pTarget->GetMaxHealth() * curHealthRatio));
         }
@@ -10197,9 +10159,6 @@ m_permanent(false), m_isRemovedOnShapeLost(true), m_deleted(false), m_in_use(0)
             m_stackAmount = m_spellProto->StackAmount;
             break;
     }
-
-    for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-        RemoveAura(SpellEffectIndex(i));
 }
 
 void SpellAuraHolder::AddAura(Aura aura, SpellEffectIndex index)
@@ -10299,13 +10258,7 @@ void SpellAuraHolder::_AddSpellAuraHolder()
         }
     }
 
-    uint8 flags = 0;
-    for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-    {
-        if (GetAuraByEffectIndex(SpellEffectIndex(i)))
-            flags |= (1 << i);
-    }
-    flags |= ((GetCasterGuid() == GetTarget()->GetObjectGuid()) ? AFLAG_NOT_CASTER : AFLAG_NONE) | ((GetSpellMaxDuration(m_spellProto) > 0 && !(m_spellProto->AttributesEx5 & SPELL_ATTR_EX5_NO_DURATION)) ? AFLAG_DURATION : AFLAG_NONE) | (IsPositive() ? AFLAG_POSITIVE : AFLAG_NEGATIVE);
+    uint8 flags = GetAuraFlags() | ((GetCasterGuid() == GetTarget()->GetObjectGuid()) ? AFLAG_NOT_CASTER : AFLAG_NONE) | ((GetSpellMaxDuration(m_spellProto) > 0 && !(m_spellProto->AttributesEx5 & SPELL_ATTR_EX5_NO_DURATION)) ? AFLAG_DURATION : AFLAG_NONE) | (IsPositive() ? AFLAG_POSITIVE : AFLAG_NEGATIVE);
     SetAuraFlags(flags);
 
     SetAuraLevel(caster ? caster->getLevel() : sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL));
@@ -10552,6 +10505,9 @@ bool SpellAuraHolder::ModStackAmount(int32 num)
     if (!protoStackAmount)
         return true;
 
+    if (num != 0)
+        HandleSpellSpecificBoostsForward(num > 0);
+
     // Modify stack but limit it
     int32 stackAmount = m_stackAmount + num;
     if (stackAmount > (int32)protoStackAmount)
@@ -10728,11 +10684,54 @@ void SpellAuraHolder::SendAuraUpdate(bool remove) const
 
 void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
 {
+    // it's impossible in theory, but possible at fact...
+    if (!GetSpellProto())
+        return;
+
+    // if holder applyed in deleted case, need do nothing
+    if (apply && IsDeleted())
+    {
+        sLog.outError("SpellAuraHolder::HandleSpellSpecificBoosts called `apply`  for deleted holder %u !", GetId());
+        return;
+    }
+
     bool cast_at_remove = false;                            // if spell must be casted at last aura from stack remove
     uint32 spellId1 = 0;
     uint32 spellId2 = 0;
     uint32 spellId3 = 0;
     uint32 spellId4 = 0;
+
+    // Linked spells (boost chain)
+    SpellLinkedSet linkedSet = sSpellMgr.GetSpellLinked(GetId(), SPELL_LINKED_TYPE_BOOST);
+    if (linkedSet.size() > 0)
+    {
+        for (SpellLinkedSet::const_iterator itr = linkedSet.begin(); itr != linkedSet.end(); ++itr)
+        {
+            apply ?
+                m_target->CastSpell(m_target, *itr, true, NULL, NULL, GetCasterGuid()) :
+                m_target->RemoveAurasByCasterSpell(*itr, GetCasterGuid());
+        }
+    }
+
+    if (!apply)
+    {
+        // Linked spells (CastOnRemove chain)
+        linkedSet = sSpellMgr.GetSpellLinked(GetId(), SPELL_LINKED_TYPE_CASTONREMOVE);
+        if (linkedSet.size() > 0)
+        {
+            for (SpellLinkedSet::const_iterator itr = linkedSet.begin(); itr != linkedSet.end(); ++itr)
+                m_target->CastSpell(m_target, *itr, true, NULL, NULL, GetCasterGuid());
+        }
+
+        // Linked spells (RemoveOnRemove chain)
+        linkedSet = sSpellMgr.GetSpellLinked(GetId(), SPELL_LINKED_TYPE_REMOVEONREMOVE);
+        if (linkedSet.size() > 0)
+        {
+            for (SpellLinkedSet::const_iterator itr = linkedSet.begin(); itr != linkedSet.end(); ++itr)
+                m_target->RemoveAurasByCasterSpell(*itr, GetCasterGuid());
+        }
+    }
+    linkedSet.clear();
 
     switch(GetSpellProto()->SpellFamilyName)
     {
@@ -10977,10 +10976,17 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
             }
             else if (!apply && m_spellProto->SpellFamilyFlags.test<CF_MAGE_ARCANE_MISSILES_CHANNEL>())
             {
-                // Remove missile barrage
                 if (Unit * caster = GetCaster())
-                    if (caster->HasAura(44401))
-                        caster->RemoveAurasByCasterSpell(44401, caster->GetObjectGuid());
+                {
+                    // Remove missile barrage
+                    if (SpellAuraHolderPtr holder = caster->GetSpellAuraHolder(44401, caster->GetObjectGuid()))
+                        if (holder->DropAuraCharge())
+                            caster->RemoveSpellAuraHolder(holder);
+
+                    // Remove Arcane Blast
+                    if (caster->HasAura(36032))
+                        caster->RemoveAurasByCasterSpell(36032, caster->GetObjectGuid());
+                }
             }
 
             switch(GetId())
@@ -11234,6 +11240,16 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     int32 heal = aura->GetModifier()->m_amount;
                     caster->CastCustomSpell(m_target, 64801, &heal, NULL, NULL, true, NULL);
                 }
+            }
+            // Rip
+            else if (GetSpellProto()->SpellFamilyFlags.test<CF_DRUID_RIP>())
+            {
+                Unit* caster = GetCaster();
+                if (!caster)
+                    return;
+
+                if (caster->HasAura(63974))                 // Glyph of Shred triggered
+                    caster->RemoveAurasDueToSpell(63974);
             }
             // Barkskin
             else if (GetId()==22812 && m_target->HasAura(63057)) // Glyph of Barkskin
@@ -11666,36 +11682,31 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
             break;
         }
         default:
-            return;
+            break;
     }
 
-    // prevent aura deletion, specially in multi-boost case
-    SetInUse(true);
+    // Old method override. need rewrite.
+    if (spellId1)
+        linkedSet.insert(spellId1);
+    if (spellId2)
+        linkedSet.insert(spellId2);
+    if (spellId3)
+        linkedSet.insert(spellId3);
+    if (spellId4)
+        linkedSet.insert(spellId4);
 
-    if (apply || cast_at_remove)
+    if (linkedSet.size() > 0)
     {
-        if (spellId1)
-            m_target->CastSpell(m_target, spellId1, true, NULL, NULL, GetCasterGuid());
-        if (spellId2 && !IsDeleted())
-            m_target->CastSpell(m_target, spellId2, true, NULL, NULL, GetCasterGuid());
-        if (spellId3 && !IsDeleted())
-            m_target->CastSpell(m_target, spellId3, true, NULL, NULL, GetCasterGuid());
-        if (spellId4 && !IsDeleted())
-            m_target->CastSpell(m_target, spellId4, true, NULL, NULL, GetCasterGuid());
+        // prevent aura deletion, specially in multi-boost case
+        SetInUse(true);
+        for (SpellLinkedSet::const_iterator itr = linkedSet.begin(); itr != linkedSet.end(); ++itr)
+        {
+            (apply || cast_at_remove) ?
+                m_target->CastSpell(m_target, *itr, true, NULL, NULL, GetCasterGuid()) :
+                m_target->RemoveAurasByCasterSpell(*itr, GetCasterGuid());
+        }
+        SetInUse(false);
     }
-    else
-    {
-        if (spellId1)
-            m_target->RemoveAurasByCasterSpell(spellId1, GetCasterGuid());
-        if (spellId2)
-            m_target->RemoveAurasByCasterSpell(spellId2, GetCasterGuid());
-        if (spellId3)
-            m_target->RemoveAurasByCasterSpell(spellId3, GetCasterGuid());
-        if (spellId4)
-            m_target->RemoveAurasByCasterSpell(spellId4, GetCasterGuid());
-    }
-
-    SetInUse(false);
 }
 
 void SpellAuraHolder::HandleSpellSpecificBoostsForward(bool apply)
@@ -11704,11 +11715,42 @@ void SpellAuraHolder::HandleSpellSpecificBoostsForward(bool apply)
     if (!GetSpellProto())
         return;
 
-    uint32 spellId1 = 0;
-    uint32 spellId2 = 0;
-    uint32 spellId3 = 0;
-    uint32 spellId4 = 0;
+    // if holder applyed in deleted case, need do nothing
+    if (apply && IsDeleted())
+    {
+        sLog.outError("SpellAuraHolder::HandleSpellSpecificBoostsForward called `apply`  for deleted holder %u !", GetId());
+        return;
+    }
 
+    // Custom proc system (proc before apply or before fade)
+    Unit* pCaster = GetCaster();
+    if (!pCaster)
+        pCaster = m_target;
+
+    uint32 procFlag = apply ? PROC_FLAG_ON_AURA_APPLY : PROC_FLAG_ON_AURA_FADE;
+    uint32 procEx   = 0;
+    switch (m_removeMode)
+    {
+        case AURA_REMOVE_BY_EXPIRE:
+        case AURA_REMOVE_BY_DEFAULT:
+            procEx   |= PROC_EX_EXPIRE;
+            break;
+        case AURA_REMOVE_BY_SHIELD_BREAK:
+            procEx   |= PROC_EX_SHIELD_BREAK;
+            break;
+        case AURA_REMOVE_BY_DISPEL:
+            procEx   |= PROC_EX_DISPEL;
+            break;
+        default:
+            break;
+    };
+
+    pCaster->ProcDamageAndSpell(m_target, procFlag, PROC_FLAG_NONE, procEx, 0, GetWeaponAttackType(GetSpellProto()), GetSpellProto());
+
+    // Linked spells (boostforward chain)
+    SpellLinkedSet linkedSet = sSpellMgr.GetSpellLinked(GetId(), SPELL_LINKED_TYPE_BOOSTFORWARD);
+
+    // Custom cases
     switch(GetSpellProto()->SpellFamilyName)
     {
         case SPELLFAMILY_WARLOCK:
@@ -11719,60 +11761,67 @@ void SpellAuraHolder::HandleSpellSpecificBoostsForward(bool apply)
                 switch(GetId())
                 {
                     case 32386:
-                        spellId1 = 60448;
+                        linkedSet.insert(60448);
                         break;
                     case 32388:
-                        spellId1 = 60465;
+                        linkedSet.insert(60465);
                         break;
                     case 32389:
-                        spellId1 = 60466;
+                        linkedSet.insert(60466);
                         break;
                     case 32390:
-                        spellId1 = 60467;
+                        linkedSet.insert(60467);
                         break;
                     case 32391:
-                        spellId1 = 60468;
+                        linkedSet.insert(60468);
                         break;
                     default:
                         break;
                 }
                 break;
             }
-            else
-                return;
             break;
         }
+        case SPELLFAMILY_HUNTER:
+        {
+            // Cobra strike
+            if (m_spellProto->Id == 53257)
+            {
+                if (m_target->GetObjectGuid().IsPet())
+                {
+                    if (!apply)
+                        if (Unit* owner = ((Pet*)m_target)->GetOwner())
+                            if (SpellAuraHolderPtr holder = owner->GetSpellAuraHolder(m_spellProto->Id))
+                                if (holder->ModStackAmount(-1))
+                                    owner->RemoveSpellAuraHolder(holder);
+                }
+                else if (apply)
+                {
+                    if (Pet* pet = m_target->GetPet())
+                        if (pet->isAlive())
+                            pet->CastSpell(pet,m_spellProto->Id,true);
+                }
+                return;
+            }
+            else
+                break;
+        }
         default:
-            return;
+            break;
     }
 
-    // prevent aura deletion, specially in multi-boost case
-    SetInUse(true);
-
-    if (apply)
+    if (linkedSet.size() > 0)
     {
-        if (spellId1)
-            m_target->CastSpell(m_target, spellId1, true, NULL, NULL, GetCasterGuid());
-        if (spellId2 && !IsDeleted())
-            m_target->CastSpell(m_target, spellId2, true, NULL, NULL, GetCasterGuid());
-        if (spellId3 && !IsDeleted())
-            m_target->CastSpell(m_target, spellId3, true, NULL, NULL, GetCasterGuid());
-        if (spellId4 && !IsDeleted())
-            m_target->CastSpell(m_target, spellId4, true, NULL, NULL, GetCasterGuid());
+        // prevent aura deletion, specially in multi-boost case
+        SetInUse(true);
+        for (SpellLinkedSet::const_iterator itr = linkedSet.begin(); itr != linkedSet.end(); ++itr)
+        {
+            apply ?
+                m_target->CastSpell(m_target, *itr, true, NULL, NULL, GetCasterGuid()) :
+                m_target->RemoveAurasByCasterSpell(*itr, GetCasterGuid());
+        }
+        SetInUse(false);
     }
-    else
-    {
-        if (spellId1)
-            m_target->RemoveAurasByCasterSpell(spellId1, GetCasterGuid());
-        if (spellId2)
-            m_target->RemoveAurasByCasterSpell(spellId2, GetCasterGuid());
-        if (spellId3)
-            m_target->RemoveAurasByCasterSpell(spellId3, GetCasterGuid());
-        if (spellId4)
-            m_target->RemoveAurasByCasterSpell(spellId4, GetCasterGuid());
-    }
-
-    SetInUse(false);
 }
 
 SpellAuraHolder::~SpellAuraHolder()
@@ -11819,6 +11868,9 @@ void SpellAuraHolder::Update(uint32 diff)
     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         if (Aura *aura = GetAuraByEffectIndex(SpellEffectIndex(i)))
             aura->UpdateAura(diff);
+
+    if (!m_target || !m_target->IsInWorld())
+        return;
 
     // Channeled aura required check distance from caster
     if (IsChanneledSpell(m_spellProto) && GetCasterGuid() != m_target->GetObjectGuid())
@@ -11913,6 +11965,12 @@ bool SpellAuraHolder::IsAreaAura() const
 
 bool SpellAuraHolder::IsPositive() const
 {
+    if (GetAuraFlags() & AFLAG_POSITIVE)
+        return true;
+    else if (GetAuraFlags() & AFLAG_NEGATIVE)
+        return false;
+
+    // check, if no aura flags defined
     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         if (Aura const* aur = GetAura(SpellEffectIndex(i)))
             if (!aur->IsPositive())
@@ -12033,20 +12091,22 @@ void Aura::HandleAuraFactionChange(bool apply, bool real)
 
 uint32 Aura::CalculateCrowdControlBreakDamage()
 {
-    // Damage cap for CC effects
     if (!GetTarget())
         return 0;
 
     if (!IsCrowdControlAura(m_modifier.m_auraname))
         return 0;
 
-    // The chance to dispel an aura depends on the damage taken with respect to the casters level.
-    // uint32 damageCap = getLevel() > 8 ? 25 * getLevel() - 150 : 50;
-
-    uint32 damageCap = (int32)((float)GetTarget()->GetCreateHealth() * 0.20f);
+    // Damage cap for CC effects
+    uint32 damageCap = (int32)((float)GetTarget()->GetMaxHealth() * sWorld.getConfig(CONFIG_FLOAT_CROWDCONTROL_HP_BASE));
 
     if (damageCap < 50)
         damageCap = 50;
+
+    // some specific values
+    // Hungering Cold - any damage
+    if (GetSpellProto()->SpellIconID == 2797)
+        damageCap = 1;
 
     Unit* caster = GetCaster();
 
@@ -12070,6 +12130,21 @@ uint32 Aura::CalculateCrowdControlBreakDamage()
         }
     }
     return damageCap;
+}
+
+bool Aura::IsAffectedByCrowdControlEffect(uint32 damage)
+{
+    if (!IsCrowdControlAura(m_modifier.m_auraname))
+        return false;
+
+    if (damage > m_modifier.m_baseamount)
+    {
+        m_modifier.m_baseamount = 0;
+        return false;
+    }
+
+    m_modifier.m_baseamount -= damage;
+    return true;
 }
 
 //patch Aura 15

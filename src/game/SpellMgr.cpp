@@ -701,7 +701,9 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 63138:                                         // Sara's Fervor (Ulduar - Yogg Saron encounter)
         case 63134:                                         // Sara's Blessing (Ulduar - Yogg Saron encounter)
         case 63355:                                         // Crunch Armor
+        case 66271:                                         // Carrying Seaforium (IoC)
         case 66406:                                         // Snobolled! (Trial of the Crusader, Gormok the Impaler encounter)
+        case 68377:                                         // Carrying Huge Seaforium (IoC)
         case 71010:                                         // Web Wrap (Icecrown Citadel, trash mob Nerub'ar Broodkeeper)
         case 72219:                                         // Gastric Bloat 10 N
         case 72551:                                         // Gastric Bloat 10 H
@@ -728,8 +730,8 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 552:                                           // Abolish Disease
         case 12042:                                         // Arcane Power
         case 24732:                                         // Bat Costume
-        case 36032:                                         // Arcane Blast
         case 59286:                                         // Opening
+        case 43730:                                         // Electrified
         case 47540:                                         // Penance start dummy aura - Rank 1
         case 53005:                                         // Penance start dummy aura - Rank 2
         case 53006:                                         // Penance start dummy aura - Rank 3
@@ -1762,6 +1764,87 @@ void SpellMgr::LoadSpellBonuses()
 
     sLog.outString();
     sLog.outString( ">> Loaded %u extra spell bonus data",  count);
+}
+
+void SpellMgr::LoadSpellLinked()
+{
+    mSpellLinkedMap.clear();                          // need for reload case
+    uint32 count = 0;
+    //                                                0      1             2     3
+    QueryResult* result = WorldDatabase.Query("SELECT entry, linked_entry, type, effect_mask FROM spell_linked");
+    if (!result)
+    {
+        BarGoLink bar(1);
+        bar.step();
+        sLog.outString();
+        sLog.outString(">> Spell linked definition not loaded - table empty");
+        return;
+    }
+
+    BarGoLink bar(result->GetRowCount());
+    do
+    {
+        Field *fields = result->Fetch();
+        bar.step();
+        uint32 entry       = fields[0].GetUInt32();
+        uint32 linkedEntry = fields[1].GetUInt32();
+
+        SpellEntry const* spell = sSpellStore.LookupEntry(entry);
+        SpellEntry const* spell1 = sSpellStore.LookupEntry(linkedEntry);
+        if (!spell || !spell1)
+        {
+            sLog.outErrorDb("Spells %u or %u listed in `spell_linked` does not exist", entry, linkedEntry);
+            continue;
+        }
+
+        if (entry == linkedEntry)
+        {
+            sLog.outErrorDb("Spell %u linked with self!", entry);
+            continue;
+        }
+
+        uint32 first_id = GetFirstSpellInChain(entry);
+
+        if ( first_id != entry )
+        {
+            sLog.outErrorDb("Spell %u listed in `spell_linked` is not first rank (%u) in chain", entry, first_id);
+        }
+
+        SpellLinkedEntry data;
+
+        data.spellId      = entry;
+        data.linkedId     = linkedEntry;
+        data.type         = fields[2].GetUInt32();
+        data.effectMask   = fields[3].GetUInt32();
+
+        mSpellLinkedMap.insert(SpellLinkedMap::value_type(entry,data));
+
+        ++count;
+
+    }
+    while (result->NextRow());
+
+    delete result;
+
+    sLog.outString();
+    sLog.outString( ">> Loaded %u spell linked definitions",  count);
+}
+
+SpellLinkedSet SpellMgr::GetSpellLinked(uint32 spell_id, SpellLinkedType type) const
+{
+    SpellLinkedSet result;
+
+    SpellLinkedMapBounds const& bounds = GetSpellLinkedMapBounds(spell_id);
+
+    if (type < SPELL_LINKED_TYPE_MAX && bounds.first != bounds.second)
+    {
+        for (SpellLinkedMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
+        {
+            if (itr->second.type == type)
+                result.insert(itr->second.linkedId);
+        }
+    }
+    return result;
 }
 
 bool SpellMgr::IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const * spellProcEvent, uint32 EventProcFlag, SpellEntry const * procSpell, uint32 procFlags, uint32 procExtra)
@@ -4188,11 +4271,11 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
             // Freezing Trap & Freezing Arrow & Wyvern Sting
             if  (spellproto->SpellIconID == 180 || spellproto->SpellIconID == 1721)
                 return DIMINISHING_DISORIENT;
-// patch Hunter's Mark diminishing
-            // Hunter's Mark
-            if (spellproto->SpellFamilyFlags & UI64LIT(0x400))
+
+            // Hunters Mark - limit to 2 minutes in PvP
+            else if (spellproto->SpellFamilyFlags.test<CF_HUNTER_HUNTERS_MARK>())
                 return DIMINISHING_LIMITONLY;
-//
+
             break;
         }
         case SPELLFAMILY_PALADIN:
@@ -4317,10 +4400,9 @@ int32 GetDiminishingReturnsLimitDuration(DiminishingGroup group, SpellEntry cons
             // Wyvern Sting
             if (spellproto->SpellFamilyFlags.test<CF_HUNTER_WYVERN_STING2>())
                 return 6000;
-// patch hunter's mark diminishing
-            if (spellproto->SpellFamilyFlags.test<CF_HUNTER_HUNTERS_MARK>())
+            // Hunters Mark - limit to 2 minutes in PvP
+            else if (spellproto->SpellFamilyFlags.test<CF_HUNTER_HUNTERS_MARK>())
                 return 120000;
-//
             break;
         }
         case SPELLFAMILY_PALADIN:
@@ -4444,26 +4526,6 @@ bool SpellArea::IsFitToRequirements(Player const* player, uint32 newZone, uint32
             return !player->HasAura(-auraSpell, EFFECT_INDEX_0);
     }
 
-    // Extra conditions -- leaving the possibility add extra conditions...
-    switch(spellId)
-    {
-        case 68719: // Oil Refinery - Isle of Conquest.
-        case 68720: // Quarry - Isle of Conquest.
-        {
-            if (player->GetBattleGroundTypeId() != BATTLEGROUND_IC || !player->GetBattleGround())
-                return false;
- 
-            uint8 nodeType = spellId == 68719 ? NODE_TYPE_REFINERY : NODE_TYPE_QUARRY;
-            uint8 nodeState = player->GetTeamId() == TEAM_ALLIANCE ? NODE_STATE_CONTROLLED_A : NODE_STATE_CONTROLLED_H;
-
-            BattleGroundIC* pIC = static_cast<BattleGroundIC*>(player->GetBattleGround());
-            if (pIC->GetNodeState(nodeType) == nodeState)
-                return true;
- 
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -4487,4 +4549,21 @@ SpellEntry const* GetSpellEntryByDifficulty(uint32 id, Difficulty difficulty, bo
     }
 
     return NULL;
+}
+
+uint32 GetProcFlag(SpellEntry const* spellInfo)
+{
+    if (!spellInfo)
+        return 0;
+
+    SpellProcEventEntry const* spellProcEvent = sSpellMgr.GetSpellProcEvent(spellInfo->Id);
+
+    // Get EventProcFlag
+    uint32 EventProcFlag = 0;
+    if (spellProcEvent && spellProcEvent->procFlags) // if exist get custom spellProcEvent->procFlags
+        EventProcFlag = spellProcEvent->procFlags;
+    else
+        EventProcFlag = spellInfo->procFlags;       // else get from spell proto
+
+    return EventProcFlag;
 }

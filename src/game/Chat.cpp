@@ -610,6 +610,7 @@ ChatCommand * ChatHandler::getCommandTable()
 // patch sanctuary area-zone-map
         { "custom_sanctuary",            SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadCustomSanctuaryCommand,         "", NULL },
 //
+        { "spell_linked",                SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadSpellLinkedCommand,             "", NULL },
         { "anticheat",                   SEC_ADMINISTRATOR, true,  &ChatHandler::HandleReloadAntiCheatCommand,               "", NULL },
 
         { NULL,                          0,                 false, NULL,                                                     "", NULL }
