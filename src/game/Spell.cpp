@@ -601,18 +601,22 @@ void Spell::FillTargetMap()
                         break;
                     case TARGET_AREAEFFECT_INSTANT:
 // patch Thorim's Spell
-                        switch(m_spellInfo->Id)
+                        if(m_spellInfo->Id == 62560)     // Berserk Adds
                         {
-                            case 62560:     // Berserk Adds
-                                SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
-                                SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, tmpUnitMap);
-                                break;
-                            case 62016:     // Charge Orb
-                                if (m_targets.getUnitTarget())
-                                    tmpUnitMap.push_back(m_targets.getUnitTarget());
-                                break;
+                            SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
+                            SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, tmpUnitMap);
+                        }
+                        else if(m_spellInfo->Id == 62016)     // Charge Orb
+                        {
+                            if (m_targets.getUnitTarget())
+                                tmpUnitMap.push_back(m_targets.getUnitTarget());
                         }
 //
+                        else
+                        {
+                            SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
+                            SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetB[i], tmpUnitMap);
+                        }
                         break;
                     case 0:
 // patch life burst hack
