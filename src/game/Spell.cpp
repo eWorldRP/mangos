@@ -80,7 +80,10 @@ class PrioritizeHealthUnitWraper
 public:
     explicit PrioritizeHealthUnitWraper(Unit* unit) : i_unit(unit)
     {
-        i_percent = unit->GetHealth() * 100 / unit->GetMaxHealth();
+        if (!unit || unit->GetMaxHealth() == 0)
+            i_percent = 100;
+        else
+            i_percent = unit->GetHealth() * 100 / unit->GetMaxHealth();
     }
     Unit* getUnit() const { return i_unit; }
     uint32 getPercent() const { return i_percent; }
@@ -1477,16 +1480,10 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
         }
         else
         {
-            if (!m_spellAuraHolder || m_spellAuraHolder->IsDeleted())
-                return;
-
             m_spellAuraHolder->SetInUse(false);
 
-            if (m_spellAuraHolder->IsInUse())
-            {
-                m_spellAuraHolder->SetDeleted();
+            if (!m_spellAuraHolder->IsDeleted())
                 unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
-            }
         }
     }
 }
@@ -1746,6 +1743,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 31347:                                 // Doom TODO: exclude top threat target from target selection
                 case 33711:                                 // Murmur's Touch
                 case 38794:                                 // Murmur's Touch (h)
+                case 44869:                                 // Spectral Blast
                 case 45976:                                 // Open Portal
                 case 48278:                                 // Paralyze (Utgarde Pinnacle)
                 case 50988:                                 // Glare of the Tribunal (Halls of Stone)
@@ -4897,6 +4895,9 @@ void Spell::SendLogExecute()
 
 void Spell::SendInterrupted(uint8 result)
 {
+    if (!m_caster || !m_caster->IsInWorld())
+        return;
+
     WorldPacket data(SMSG_SPELL_FAILURE, (8+4+1));
     data << m_caster->GetPackGUID();
     data << uint8(m_cast_count);
@@ -6656,6 +6657,28 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (pTarget->HasAuraType(SPELL_AURA_MIRROR_IMAGE))
                     return SPELL_FAILED_BAD_TARGETS;
 
+                break;
+            }
+            case SPELL_AURA_CONTROL_VEHICLE:
+            {
+                Unit* pTarget = m_targets.getUnitTarget();
+
+                if (!pTarget || !pTarget->GetVehicleKit())
+                    return SPELL_FAILED_BAD_TARGETS;
+
+                int32 seat = m_spellInfo->EffectApplyAuraName[i] < 8 ? m_spellInfo->EffectApplyAuraName[i] : -1;
+
+                if (!pTarget->GetVehicleKit()->HasEmptySeat(seat))
+                {
+                    if (seat == -1)
+                        return SPELL_FAILED_BAD_TARGETS;
+
+                    if (!seat && m_caster->GetTypeId() == TYPEID_PLAYER && !pTarget->GetVehicleKit()->HasEmptySeat(-1))
+                        return SPELL_FAILED_BAD_TARGETS;
+
+                    if (m_caster->GetTypeId() != TYPEID_PLAYER)
+                        return SPELL_FAILED_BAD_TARGETS;
+                }
                 break;
             }
             default:

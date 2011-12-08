@@ -649,12 +649,17 @@ void Aura::AreaAuraUpdate(uint32 diff)
     {
         Unit* caster = GetTarget();
 
+        if (!caster || !caster->GetMap())
+            return;
+
         if ( !caster->hasUnitState(UNIT_STAT_ISOLATED) )
         {
             Unit* owner = caster->GetCharmerOrOwner();
             if (!owner)
                 owner = caster;
-            Spell::UnitList targets;
+
+            ObjectGuidSet targets;
+            Spell::UnitList _targets;
 
             switch(m_areaAuraType)
             {
@@ -674,7 +679,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                             if (Target && Target->IsInWorld() && Target->isAlive() && Target->GetSubGroup()==subgroup && caster->IsInWorld() && caster->IsFriendlyTo(Target))
                             {
                                 if (caster->IsWithinDistInMap(Target, m_radius))
-                                    targets.push_back(Target);
+                                    targets.insert(Target->GetObjectGuid());
                                 if (Target->GetPet())
                                 {
                                     GroupPetList m_groupPets = Target->GetPets();
@@ -683,7 +688,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                                         for (GroupPetList::const_iterator itr = m_groupPets.begin(); itr != m_groupPets.end(); ++itr)
                                             if (Pet* _pet = Target->GetMap()->GetPet(*itr))
                                                 if (_pet && _pet->IsInWorld() && _pet->isAlive() && caster->IsWithinDistInMap(_pet, m_radius))
-                                                    targets.push_back(_pet);
+                                                    targets.insert(_pet->GetObjectGuid());
                                     }
                                 }
                             }
@@ -693,7 +698,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                     {
                         // add owner
                         if ( owner != caster && caster->IsWithinDistInMap(owner, m_radius) )
-                            targets.push_back(owner);
+                            targets.insert(owner->GetObjectGuid());
                         // add caster's pet
                         if (caster->GetPet())
                         {
@@ -703,7 +708,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                                 for (GroupPetList::const_iterator itr = m_groupPets.begin(); itr != m_groupPets.end(); ++itr)
                                     if (Pet* _pet = caster->GetMap()->GetPet(*itr))
                                         if (_pet && _pet->IsInWorld() && caster->IsWithinDistInMap(_pet, m_radius))
-                                            targets.push_back(_pet);
+                                            targets.insert(_pet->GetObjectGuid());
                             }
                         }
                     }
@@ -724,7 +729,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                             if (Target && Target->IsInWorld() && Target->isAlive() && caster->IsInWorld() && caster->IsFriendlyTo(Target))
                             {
                                 if (caster->IsWithinDistInMap(Target, m_radius))
-                                    targets.push_back(Target);
+                                    targets.insert(Target->GetObjectGuid());
                                 if (Target->GetPet())
                                 {
                                     GroupPetList m_groupPets = Target->GetPets();
@@ -733,7 +738,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                                         for (GroupPetList::const_iterator itr = m_groupPets.begin(); itr != m_groupPets.end(); ++itr)
                                             if (Pet* _pet = caster->GetMap()->GetPet(*itr))
                                                 if (_pet && _pet->IsInWorld() && caster->IsWithinDistInMap(_pet, m_radius))
-                                                    targets.push_back(_pet);
+                                                    targets.insert(_pet->GetObjectGuid());
                                     }
                                 }
                             }
@@ -743,7 +748,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                     {
                         // add owner
                         if ( owner != caster && caster->IsWithinDistInMap(owner, m_radius) )
-                            targets.push_back(owner);
+                            targets.insert(owner->GetObjectGuid());
                         // add caster's pet
                         if (caster->GetPet())
                         {
@@ -753,7 +758,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                                 for (GroupPetList::const_iterator itr = m_groupPets.begin(); itr != m_groupPets.end(); ++itr)
                                     if (Pet* _pet = caster->GetMap()->GetPet(*itr))
                                         if (_pet && _pet->IsInWorld() && caster->IsWithinDistInMap(_pet, m_radius))
-                                            targets.push_back(_pet);
+                                            targets.insert(_pet->GetObjectGuid());
                             }
                         }
                     }
@@ -762,14 +767,14 @@ void Aura::AreaAuraUpdate(uint32 diff)
                 case AREA_AURA_FRIEND:
                 {
                     MaNGOS::AnyFriendlyUnitInObjectRangeCheck u_check(caster, m_radius);
-                    MaNGOS::UnitListSearcher<MaNGOS::AnyFriendlyUnitInObjectRangeCheck> searcher(targets, u_check);
+                    MaNGOS::UnitListSearcher<MaNGOS::AnyFriendlyUnitInObjectRangeCheck> searcher(_targets, u_check);
                     Cell::VisitAllObjects(caster, searcher, m_radius);
                     break;
                 }
                 case AREA_AURA_ENEMY:
                 {
                     MaNGOS::AnyAoETargetUnitInObjectRangeCheck u_check(caster, m_radius); // No GetCharmer in searcher
-                    MaNGOS::UnitListSearcher<MaNGOS::AnyAoETargetUnitInObjectRangeCheck> searcher(targets, u_check);
+                    MaNGOS::UnitListSearcher<MaNGOS::AnyAoETargetUnitInObjectRangeCheck> searcher(_targets, u_check);
                     Cell::VisitAllObjects(caster, searcher, m_radius);
                     break;
                 }
@@ -777,26 +782,36 @@ void Aura::AreaAuraUpdate(uint32 diff)
                 case AREA_AURA_PET:
                 {
                     if (owner != caster && caster->IsInWorld() && caster->IsWithinDistInMap(owner, m_radius))
-                        targets.push_back(owner);
+                        targets.insert(owner->GetObjectGuid());
                     break;
                 }
+                default:
+                    break;
             }
 
-            for(Spell::UnitList::iterator tIter = targets.begin(); tIter != targets.end(); tIter++)
+            if (!_targets.empty())
+                for (Spell::UnitList::iterator itr = _targets.begin(); itr != _targets.end(); ++itr)
+                    if (*itr)
+                        targets.insert((*itr)->GetObjectGuid());
+
+            for (ObjectGuidSet::const_iterator tIter = targets.begin(); tIter != targets.end(); tIter++)
             {
                 // flag for selection is need apply aura to current iteration target
                 bool apply = true;
 
 // patch might of mograine              
                 // The Might of Mograine must not affect scourge soldiers, must affect only players and DK bosses
-                if (GetSpellProto()->Id == 53642 && ((*tIter)->GetEntry() == 29186 || (*tIter)->GetEntry() == 29190 || (*tIter)->GetEntry() == 29219 || (*tIter)->GetEntry() == 29206))
+                if (GetSpellProto()->Id == 53642 && ((*tIter).GetEntry() == 29186 || (*tIter).GetEntry() == 29190 || (*tIter).GetEntry() == 29219 || (*tIter).GetEntry() == 29206))
                     apply = false;
 //
 
                 // we need ignore present caster self applied are auras sometime
                 // in cases if this only auras applied for spell effect
-                Unit* i_target = *tIter;
+                Unit* i_target = caster->GetMap()->GetUnit(*tIter);
                 if (!i_target)
+                    continue;
+
+                if (i_target->GetTypeId() == TYPEID_PLAYER && ((Player*)i_target)->IsBeingTeleportedFar())
                     continue;
 
                 if (i_target->IsImmuneToSpell(GetSpellProto()))
@@ -811,7 +826,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                         if (!holder || holder->IsDeleted())
                             continue;
 
-                        Aura *aur = holder->GetAuraByEffectIndex(m_effIndex);
+                        Aura* aur = holder->GetAuraByEffectIndex(m_effIndex);
 
                         if (!aur)
                             continue;
@@ -842,7 +857,7 @@ void Aura::AreaAuraUpdate(uint32 diff)
                 if(!apply)
                     continue;
 
-                if (SpellEntry const *actualSpellInfo = sSpellMgr.SelectAuraRankForLevel(GetSpellProto(), (*tIter)->getLevel()))
+                if (SpellEntry const *actualSpellInfo = sSpellMgr.SelectAuraRankForLevel(GetSpellProto(), i_target->getLevel()))
                 {
                     int32 actualBasePoints = m_currentBasePoints;
                     // recalculate basepoints for lower rank (all AreaAura spell not use custom basepoints?)
@@ -9758,14 +9773,23 @@ void Aura::HandleAuraControlVehicle(bool apply, bool Real)
 
         // TODO: find a way to make this work properly
         // some spells seem like store vehicle seat info in basepoints, but not true for all of them, so... ;/
-        // int8 seat = target->GetVehicleKit()->HasEmptySeat(GetModifier()->m_amount) ? GetModifier()->m_amount : -1;
-        // caster->EnterVehicle(target->GetVehicleKit(), seat);
+        int32 seat = -1;
 
-        int8 seat = -1;
+        switch (GetId())
+        {
+// values below - from Michalpolko implementation, but i not sure in this...
+//            case 62708:
+//            case 62711:
+//                seat = GetModifier()->m_amount;
+//                break;
+            default:
+                if (GetModifier()->m_amount <= MAX_VEHICLE_SEAT)
+                    seat = GetModifier()->m_amount - 1;
+                break;
+        }
 
-        // Slag Pot (2 seats: hand and the pot)
-        if (GetId() == 62708 || GetId() == 62711)
-            seat = GetModifier()->m_amount;
+        if (caster->GetTypeId() == TYPEID_PLAYER && !target->GetVehicleKit()->HasEmptySeat(seat))
+            seat = -1;
 
         caster->EnterVehicle(target->GetVehicleKit(), seat);
     }
@@ -10168,9 +10192,12 @@ void SpellAuraHolder::AddAura(Aura aura, SpellEffectIndex index)
         DEBUG_LOG("SpellAuraHolder::AddAura attempt to add aura (effect %u) to holder of spell %u, but holder already have active aura!", index, GetId());
         RemoveAura(index);
     }
-    AuraStorage::iterator itr = m_aurasStorage.find(index);
-    if (itr != m_aurasStorage.end())
-        m_aurasStorage.erase(index);
+    if (!m_aurasStorage.empty())
+    {
+        AuraStorage::iterator itr = m_aurasStorage.find(index);
+        if (itr != m_aurasStorage.end())
+            m_aurasStorage.erase(itr);
+    }
 
     m_aurasStorage.insert(std::make_pair(index,aura));
     m_auraFlags |= (1 << index);
@@ -10185,12 +10212,14 @@ void SpellAuraHolder::CleanupsBeforeDelete()
 {
     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         RemoveAura(SpellEffectIndex(i));
-    m_aurasStorage.clear();
+
+    if (!m_aurasStorage.empty())
+        m_aurasStorage.clear();
 }
 
 Aura* SpellAuraHolder::GetAuraByEffectIndex(SpellEffectIndex index)
 {
-    if (m_auraFlags & (1 << index))
+    if (m_auraFlags & (1 << index) && !m_aurasStorage.empty())
     {
         AuraStorage::iterator itr = m_aurasStorage.find(index);
         if (itr != m_aurasStorage.end())
@@ -10201,7 +10230,7 @@ Aura* SpellAuraHolder::GetAuraByEffectIndex(SpellEffectIndex index)
 
 Aura const* SpellAuraHolder::GetAura(SpellEffectIndex index) const
 {
-    if (m_auraFlags & (1 << index))
+    if (m_auraFlags & (1 << index) && !m_aurasStorage.empty())
     {
         AuraStorage::const_iterator itr = m_aurasStorage.find(index);
         if (itr != m_aurasStorage.end())

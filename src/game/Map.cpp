@@ -3523,11 +3523,13 @@ void Map::ForcedUnload()
             case 1:
             {
                 player->GetSession()->KickPlayer();
+                Remove(player, true);
                 break;
             }
             case 2:
             {
                 player->GetSession()->LogoutPlayer(false);
+                Remove(player, true);
                 break;
             }
             default:
@@ -3541,11 +3543,15 @@ void Map::ForcedUnload()
             if (InstanceData* iData = GetInstanceData())
                 iData->Save();
             break;
+        case 1:
+        case 2:
         default:
             break;
     }
 
     UnloadAll(true);
+
+    RemoveAllObjectsInRemoveList();
 
     SetBroken(false);
 }
