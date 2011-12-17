@@ -69,7 +69,9 @@ public:
     bool revive(Player& botPlayer) { return HandleReviveCommand((char *) botPlayer.GetName()); }
     bool teleport(Player& botPlayer) { return HandleNamegoCommand((char *) botPlayer.GetName()); }
     void sysmessage(const char *str) { SendSysMessage(str); }
-    bool dropQuest(char *str) { return HandleQuestRemoveCommand(str); }
+// patch enturion playerbot
+    bool ExtractUint32KeyFromLink(char** text, char const* linkType, uint32& value) {return ChatHandler::ExtractUint32KeyFromLink(text,linkType,value); }
+//
 };
 
 PlayerbotAI::PlayerbotAI(PlayerbotMgr* const mgr, Player* const bot) :
@@ -5404,6 +5406,237 @@ void PlayerbotAI::GetTaxi(ObjectGuid guid, BotTaxiNode& nodes)
     }
 }
 
+// patch enturion playerbot
+
+#define SPACES "\t\n\r "
+
+std::string PlayerbotAI::SplitSubCommand(std::string & cmd)
+{
+    Trim(cmd);
+
+    std::string::size_type firstspace = cmd.find_first_of(SPACES);
+    if (firstspace == std::string::npos) // no spaces: it's only one command
+    {
+        std::string result = cmd;
+        cmd.clear();
+        return result;
+    }
+
+    std::string command = cmd.substr(0,firstspace); // the command
+
+    cmd = cmd.substr(firstspace+1); // subcommands or parameters
+    Trim(cmd);
+
+    return command;
+}
+
+void PlayerbotAI::Trim(std::string & cmd)
+{
+    if (cmd.empty())
+        return; // nothing to do
+
+    std::string::size_type frombegin = cmd.find_first_not_of(SPACES);
+    if (frombegin == std::string::npos) // only spaces found
+    {
+        cmd.clear();
+        return;
+    }
+
+    std::string::size_type fromend = cmd.find_last_not_of(SPACES);
+    cmd = cmd.substr(frombegin,fromend - frombegin + 1);
+}
+
+void PlayerbotAI::ToLower(std::string & cmd)
+{
+    for (std::string::size_type i = 0; i < cmd.size(); i++)
+        cmd[i] = ::tolower(cmd[i]);
+}
+
+#undef SPACES
+
+void PlayerbotAI::HandleQuestCommand(std::string &cmd)
+{
+    std::string subcommand = SplitSubCommand(cmd);
+    ToLower(subcommand);
+
+    if (subcommand.empty())
+    {
+        HandleQuestNULLCommand();
+        return;
+    }
+
+    if (subcommand == "d" || subcommand == "drop")
+    {
+        HandleQuestDropCommand(cmd);
+        return;
+    }
+
+    if (subcommand == "a" || subcommand == "add")
+    {
+        std::list<uint32> questIds;
+        extractQuestIds(cmd, questIds);
+        for (std::list<uint32>::iterator it = questIds.begin(); it != questIds.end(); it++)
+            m_tasks.push_back(std::pair<enum TaskFlags,uint32>(ADD, *it));
+        m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        return;
+    }
+
+    if (subcommand == "l" || subcommand == "list")
+    {
+        m_tasks.push_back(std::pair<enum TaskFlags,uint32>(LIST, 0));
+        m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        return;
+    }
+
+    if (subcommand == "e" || subcommand == "end")
+    {
+        m_tasks.push_back(std::pair<enum TaskFlags,uint32>(END, 0));
+        m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        return;
+    }
+
+    // error
+    TellMaster("Unknown subcommand \"" + subcommand + "\" for \"quest\".");
+    TellMaster("Valid subcommands are: (d)rop, (a)dd, (l)ist, (e)nd.");
+}
+
+void PlayerbotAI::HandleQuestNULLCommand()
+{
+    // store ids here, because complete quests must be placed before other quests (by design)
+    std::list<Quest const *> quests;
+    uint32 completeIdx = 0; // last first incomplete quest in the list
+
+    // find all the quests in the quest log
+    for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
+    {
+        if (uint32 questId = m_bot->GetQuestSlotQuestId(slot))
+        {
+            Quest const* pQuest = sObjectMgr.GetQuestTemplate(questId);
+            if (!pQuest)
+            {
+                // silently ignore, but send an error to the log
+                sLog.outError("PlayerBotAI: ERROR: Character %u has invalid quest %u at slot %u.",
+                              m_bot->GetGUIDLow(),questId,(unsigned int)slot);
+                continue;
+            }
+
+            if (m_bot->GetQuestStatus(questId) == QUEST_STATUS_COMPLETE)
+            {
+                quests.push_front(pQuest); // completed first
+                completeIdx++;
+            }
+            else
+                quests.push_back(pQuest);
+         }
+     }
+
+     if (quests.empty())
+     {
+         TellMaster("I have no quests!");
+         return;
+     }
+
+     TellMaster("The quests I have are:");
+
+     for (std::list<Quest const *>::iterator i = quests.begin(); i != quests.end(); ++i)
+     {
+         uint32 questId = (*i)->GetQuestId();
+         std::ostringstream questdata;
+         std::string questTitle = (*i)->GetTitle();
+         QuestLocalization(questTitle, questId);
+
+         questdata << "|cFFFFFF00|Hquest:" << questId << ':' << (*i)->GetQuestLevel() << "|h[" << questTitle << "]|h|r";
+
+         if (completeIdx)
+         {
+             questdata << " is complete";
+             TellMaster(questdata.str());
+             completeIdx--; // when this reaches 0, no more completed quests in list
+         }
+         // if not completed, send source item information
+         else
+         {
+             if (Item* qitem = FindItem((*i)->GetSrcItemId()))
+             {
+                 questdata << " provides item ";
+                 questdata << "|cffffffff|Hitem:" << qitem->GetProto()->ItemId << ":0:0:0:0:0:0:0" << "|h[" << qitem->GetProto()->Name1 << "]|h|r";
+             }
+
+             TellMaster(questdata.str());
+         }
+     }
+}
+
+void PlayerbotAI::HandleQuestDropCommand(std::string &cmd)
+{
+    if (cmd.empty())
+    {
+        TellMaster("Quest link expected.");
+        return;
+    }
+
+    uint32 questEntry;
+    char * questLinkStr = const_cast<char *>(cmd.c_str());
+    if (!(PlayerbotChatHandler(GetMaster()).ExtractUint32KeyFromLink(&questLinkStr, "Hquest", questEntry)))
+    {
+        TellMaster("Invalid quest link.");
+        return;
+    }
+
+    const Quest *pQuest = sObjectMgr.GetQuestTemplate(questEntry);
+    if (!pQuest)
+    {
+       TellMaster("That quest does not exists.");
+       return;
+    }
+
+    uint16 questSlot = m_bot->FindQuestSlot(questEntry);
+    if (questSlot == MAX_QUEST_LOG_SIZE)
+    {
+       TellMaster("I don't have that quest.");
+       return;
+    }
+
+    if(!m_bot->TakeQuestSourceItem(questEntry, false))
+    {
+       TellMaster("Some of the items for that quest can't be unequipped.");
+       return;
+    }
+
+    // everything ok, remove the quest
+    if (pQuest->HasSpecialFlag(QUEST_SPECIAL_FLAG_TIMED))
+        m_bot->RemoveTimedQuest(questEntry);
+
+    m_bot->SetQuestStatus(questEntry, QUEST_STATUS_NONE);
+    m_bot->SetQuestSlot(questSlot, 0);
+
+    m_bot->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_QUEST_ABANDONED, 1);    
+    
+    // update AI status       
+    SetQuestNeedItems();
+    SetQuestNeedCreatures();
+
+    TellMaster("Quest dropped.");
+}
+
+void PlayerbotAI::HandleEquipCommand(std::string &cmd)
+{
+    if (!cmd.empty())
+    {
+        std::list<uint32> itemIds;
+        std::list<Item*> itemList;
+        extractItemIds(cmd, itemIds);
+        findItemsInInv(itemIds, itemList);
+        if (itemList.empty())
+            TellMaster("Item not found.");
+        for (std::list<Item*>::iterator it = itemList.begin(); it != itemList.end(); ++it)
+            EquipItem(*it);
+    }
+    else
+        SendNotEquipList(*m_bot);
+
+    InspectUpdate();
+}
 // handle commands sent through chat channels
 void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
 {
@@ -5419,6 +5652,13 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         text.find("CTRA") != std::wstring::npos ||
         text.find("GathX") == 0) // Gatherer
         return;
+// patch enturion playerbot    
+    std::string texttoprocess = text;
+    std::string rootcommand = SplitSubCommand(texttoprocess);
+    if (rootcommand.empty())
+        return; // no command
+    ToLower(rootcommand);
+//
 
     // if message is not from a player in the masters account auto reply and ignore
     if (!canObeyCommandFrom(fromPlayer))
@@ -5478,7 +5718,10 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         m_targetCombat = 0;
     }
     else if (text == "report")
-        SendQuestNeedList();
+// patch enturion playerbot
+        //SendQuestNeedList(*GetMaster());
+        sLog.outCustom("Il player %s esegue il comando report sul bot (%s). Mappa: %u, posizione: %f %f %f", GetMaster()->GetName(), m_bot->GetName(), GetMaster()->GetMapId(), GetMaster()->GetPositionX(), GetMaster()->GetPositionY(), GetMaster()->GetPositionZ());
+//
     else if (text == "orders")
         SendOrders(*GetMaster());
     else if (text == "follow" || text == "come")
@@ -5763,6 +6006,12 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         InspectUpdate();
         SendNotEquipList(*m_bot);
     }
+    
+// patch enturion playerbot
+    // equip items
+    else if (rootcommand == "e" || rootcommand == "equip")
+        HandleEquipCommand(texttoprocess);
+//
 
     // find project: 20:50 02/12/10 rev.4 item in world and wait until ordered to follow
     else if ((text.size() > 2 && text.substr(0, 2) == "f ") || (text.size() > 5 && text.substr(0, 5) == "find "))
@@ -5922,100 +6171,10 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         else
             TellMaster("I'm collecting nothing.");
     }
-
+    
     // Handle bot quests
-    else if (text.size() >= 5 && text.substr(0, 5) == "quest")
-    {
-        std::ostringstream msg;
-
-        std::string part = "";
-        std::string subcommand = "";
-
-        if (text.size() > 5 && text.substr(0, 6) == "quest ")
-            part = text.substr(6);  // Truncate 'quest ' part
-
-        if (part.find(" ") != std::string::npos)
-        {
-            subcommand = part.substr(0, part.find(" "));
-            if (part.size() > subcommand.size())
-                part = part.substr(subcommand.size() + 1);
-
-        }
-        else
-            subcommand = part;
-
-        if (subcommand == "a" || subcommand == "add")
-        {
-            std::list<uint32> questIds;
-            extractQuestIds(part, questIds);
-            for (std::list<uint32>::iterator it = questIds.begin(); it != questIds.end(); it++)
-                m_tasks.push_back(std::pair<enum TaskFlags, uint32>(TAKE, *it));
-            m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
-        }
-        else if (subcommand == "d" || subcommand == "drop")
-        {
-            fromPlayer.SetSelectionGuid(m_bot->GetObjectGuid());
-            PlayerbotChatHandler ch(GetMaster());
-            int8 linkStart = part.find("|");
-            if (part.find("|") != std::string::npos)
-                if (!ch.dropQuest((char *) part.substr(linkStart).c_str()))
-                    ch.sysmessage("ERROR: could not drop quest");
-                else
-                {
-                    SetQuestNeedItems();
-                    SetQuestNeedCreatures();
-                }
-        }
-        else if (subcommand == "l" || subcommand == "list")
-        {
-            m_tasks.push_back(std::pair<enum TaskFlags, uint32>(LIST, 0));
-            m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
-        }
-        else if (subcommand == "e" || subcommand == "end")
-        {
-            m_tasks.push_back(std::pair<enum TaskFlags, uint32>(END, 0));
-            m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
-        }
-        else
-        {
-            bool hasIncompleteQuests = false;
-            std::ostringstream incomout;
-            incomout << "my incomplete quests are:";
-            bool hasCompleteQuests = false;
-            std::ostringstream comout;
-            comout << "my complete quests are:";
-            for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
-            {
-                if (uint32 questId = m_bot->GetQuestSlotQuestId(slot))
-                {
-                    Quest const* pQuest = sObjectMgr.GetQuestTemplate(questId);
-
-                    std::string questTitle  = pQuest->GetTitle();
-                    m_bot->GetPlayerbotAI()->QuestLocalization(questTitle, questId);
-
-                    if (m_bot->GetQuestStatus(questId) == QUEST_STATUS_COMPLETE)
-                    {
-                        hasCompleteQuests = true;
-                        comout << " |cFFFFFF00|Hquest:" << questId << ':' << pQuest->GetQuestLevel() << "|h[" << questTitle << "]|h|r";
-                    }
-                    else
-                    {
-                        Item* qitem = FindItem(pQuest->GetSrcItemId());
-                        if (qitem)
-                            incomout << " use " << "|cffffffff|Hitem:" << qitem->GetProto()->ItemId << ":0:0:0:0:0:0:0" << "|h[" << qitem->GetProto()->Name1 << "]|h|r" << " on ";
-                        hasIncompleteQuests = true;
-                        incomout << " |cFFFFFF00|Hquest:" << questId << ':' << pQuest->GetQuestLevel() << "|h[" <<  questTitle << "]|h|r";
-                    }
-                }
-            }
-            if (hasCompleteQuests)
-                SendWhisper(comout.str(), fromPlayer);
-            if (hasIncompleteQuests)
-                SendWhisper(incomout.str(), fromPlayer);
-            if (!hasCompleteQuests && !hasIncompleteQuests)
-                SendWhisper("I have no quests!", fromPlayer);
-        }
-    }
+    else if (rootcommand == "quest")
+        HandleQuestCommand(texttoprocess);
 
     // Handle all pet related commands here
     else if (text.size() > 4 && text.substr(0, 4) == "pet ")

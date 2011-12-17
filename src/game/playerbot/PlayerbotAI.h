@@ -224,6 +224,19 @@ public:
     // from a whisper or from the party channel
     void HandleCommand(const std::string& text, Player& fromPlayer);
 
+// patch enturion playerbot
+    // command handlers
+    void HandleQuestDropCommand(std::string &cmd);
+    void HandleQuestCommand(std::string &cmd);
+    void HandleQuestNULLCommand();
+    void HandleEquipCommand(std::string &cmd);
+    
+    // command utilities
+    static std::string SplitSubCommand(std::string & cmd); // extracts the first subcommand from the string
+    static void Trim(std::string & cmd);
+    static void ToLower(std::string & cmd);
+//
+
     // This is called by WorldSession.cpp
     // It provides a view of packets normally sent to the client.
     // Since there is no client at the other end, the packets are dropped of course.
