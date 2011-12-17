@@ -7252,6 +7252,44 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
         if (creatureTypeMask & uint32((*i)->GetModifier()->m_miscvalue))
             DoneTotalMod *= ((*i)->GetModifier()->m_amount+100.0f)/100.0f;
 
+    // bonus against aurastate
+    AuraList const& mDamageDoneVersusAurastate = GetAurasByType(SPELL_AURA_MOD_DAMAGE_DONE_TO_AURA_STATE_PCT);
+    for (AuraList::const_iterator i = mDamageDoneVersusAurastate.begin(); i != mDamageDoneVersusAurastate.end(); ++i)
+    {
+// patch Twin Val'kyr essence
+        switch((*i)->GetMiscValue())
+        {
+            case 19:
+                switch (pVictim->GetEntry())
+                {
+                    case 34496: //against Eydis
+                    case 35347:
+                    case 34348:
+                    case 35349:
+                        DoneTotalMod *= ((*i)->GetModifier()->m_amount+100.0f)/100.0f;
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case 22:
+                switch (pVictim->GetEntry())
+                {
+                    case 34497: //against Fjola
+                    case 35350:
+                    case 35351:
+                    case 35352:
+                        DoneTotalMod *= ((*i)->GetModifier()->m_amount+100.0f)/100.0f;
+                        break;
+                    default:
+                        break;
+                }
+            default:
+                break;
+        }
+//
+    }
+
     AuraList const& mDamageDoneCreature = GetAurasByType(SPELL_AURA_MOD_DAMAGE_DONE_CREATURE);
     for(AuraList::const_iterator i = mDamageDoneCreature.begin();i != mDamageDoneCreature.end(); ++i)
     {
@@ -8412,6 +8450,45 @@ uint32 Unit::MeleeDamageBonusDone(Unit *pVictim, uint32 pdamage,WeaponAttackType
     // ..done pct, already included in weapon damage based spells
     if(!isWeaponDamageBasedSpell)
     {
+        // bonus against aurastate
+        AuraList const& mDamageDoneVersusAurastate = GetAurasByType(SPELL_AURA_MOD_DAMAGE_DONE_TO_AURA_STATE_PCT);
+        for (AuraList::const_iterator i = mDamageDoneVersusAurastate.begin(); i != mDamageDoneVersusAurastate.end(); ++i)
+        {
+// patch Twin Val'kyr essence
+            switch((*i)->GetMiscValue())
+            {
+                case 19:
+                    switch (pVictim->GetEntry())
+                    {
+                        case 34496: //against Eydis
+                        case 35347:
+                        case 34348:
+                        case 35349:
+                            DonePercent *= ((*i)->GetModifier()->m_amount+100.0f)/100.0f;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                case 22:
+                    switch (pVictim->GetEntry())
+                    {
+                        case 34497: //against Fjola
+                        case 35350:
+                        case 35351:
+                        case 35352:
+                            DonePercent *= ((*i)->GetModifier()->m_amount+100.0f)/100.0f;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+//
+        }
+
         AuraList const& mModDamagePercentDone = GetAurasByType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
         for(AuraList::const_iterator i = mModDamagePercentDone.begin(); i != mModDamagePercentDone.end(); ++i)
         {
