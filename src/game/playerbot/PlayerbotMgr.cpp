@@ -1049,7 +1049,7 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
             return false;
         }
 
-        QueryResult *resultsocial = CharacterDatabase.PQuery("SELECT COUNT(*) FROM character_social s, characters c WHERE s.guid=c.guid AND c.online = 0 AND flags & 1 AND s.note "_LIKE_" "_CONCAT3_("'%%'","'shared'","'%%'")" AND s.friend = '%u' AND s.guid = '%u'", m_session->GetPlayer()->GetGUIDLow(), guid);
+        QueryResult *resultsocial = CharacterDatabase.PQuery("SELECT COUNT(*) FROM character_social s, characters c WHERE s.guid=c.guid AND c.online = 0 AND flags & 1 AND s.note "_LIKE_" "_CONCAT3_("'%%'","'shared'","'%%'")" AND s.friend = '%u' AND s.guid = '%u'", m_session->GetPlayer()->GetGUIDLow(), guid.GetCounter());
         if (resultsocial)
         {
             Field *fields = resultsocial->Fetch();
@@ -1096,6 +1096,16 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
             bot_team = ALLIANCE;
         int maxlvl = sWorld.getConfig(CONFIG_UINT32_PLAYERBOT_RESTRICTLEVEL);
         int minlvl = sWorld.getConfig(CONFIG_UINT32_PLAYERBOT_MINBOTLEVEL);
+// patch restrizione livello playerbot
+        { // scope
+        int32 maxgap = sWorld.getConfig(CONFIG_UINT32_PLAYERBOT_MAXBOTGAPLEVEL);
+        int32 masterlevel = m_session->GetPlayer()->getLevel();
+        if (masterlevel + maxgap < maxlvl)
+            maxlvl = masterlevel + maxgap;
+        if (masterlevel - maxgap > minlvl)
+            minlvl = masterlevel - maxgap;
+        }
+//
         if (!(m_session->GetSecurity() > SEC_PLAYER))
         {
             if (charlvl > maxlvl)
