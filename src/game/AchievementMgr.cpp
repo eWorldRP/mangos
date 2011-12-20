@@ -475,6 +475,9 @@ void AchievementMgr::ResetAchievementCriteria(AchievementCriteriaTypes type, uin
                 {
                     case 200:
                     case 206:
+// patch Little Helper
+                    case 252:
+//
                     case 1252:
                     case 158:
                     case 157:
