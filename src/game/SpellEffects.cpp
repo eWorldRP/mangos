@@ -523,6 +523,66 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     case 67485:
                         damage += uint32(0.5f * m_caster->GetTotalAttackPowerValue(BASE_ATTACK));
                         break;
+                    case 67531:
+                    {
+                        if (m_caster->GetTypeId() != TYPEID_PLAYER)
+                            return;
+                        Player* pPlayer = (Player*)m_caster;
+                        uint32 uiCritId;
+                        switch(unitTarget->GetEntry())
+                        {
+                            // Alliance
+                            case 2784:      // King Magni Bronzebeard
+                                uiCritId = 12664;
+                                break;
+                            case 7937:      // High Tinker Mekkatorque
+                                uiCritId = 12665;
+                                break;
+                            case 7999:      // Tyrande Whisperwind
+                                uiCritId = 12666;
+                                break;
+                            case 17468:     // Prophet Velen
+                                uiCritId = 12667;
+                                break;
+                            case 29611:     // King Varian Wrynn
+                                uiCritId = 12663;
+                                break;
+                            // Horde
+                            case 3057:      // Cairne Bloodhoof
+                                uiCritId = 12662;
+                                break;
+                            case 4949:      // Thrall
+                                uiCritId = 12658;
+                                break;
+                            case 10181:     // Lady Sylvanas Windrunner
+                                uiCritId = 12661;
+                                break;
+                            case 10540:     // Vol'jin
+                                uiCritId = 12659;
+                                break;
+                            case 16802:     // Lor'themar Theron
+                                uiCritId = 12660;
+                                break;
+                            default:
+                                return;
+                        }
+
+                        AchievementCriteriaEntry const *criEntry = sAchievementCriteriaStore.LookupEntry(uiCritId);
+                        if (!criEntry)
+                            return;
+
+                        AchievementEntry const *achEntry = sAchievementStore.LookupEntry(criEntry->referredAchievement);
+                        if (!achEntry)
+                            return;
+
+                        AchievementMgr& mgr = pPlayer->GetAchievementMgr();
+                        // nothing do if completed
+                        if (mgr.IsCompletedCriteria(criEntry, achEntry))
+                            return;
+
+                        mgr.SetCriteriaProgress(criEntry, achEntry, 1, AchievementMgr::PROGRESS_SET);
+                        break;
+                    }
                     //Magic Bane normal (Forge of Souls - Bronjahm)
                     case 68793:
                     {
@@ -9740,6 +9800,9 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     }
                     return;
                 }
+                case 67533:
+                    m_caster->CastSpell(unitTarget, 67531, true);
+                    return;
 // patch powering up
                 case 67590: // 10 N
                 case 67602: // 10 H
