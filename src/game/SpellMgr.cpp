@@ -724,7 +724,13 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 67603:                                         // Powering up
         case 67604:                                         // Powering up
         case 65686:                                         // Light Essence
+        case 67222:                                         // Light Essence
+        case 67223:                                         // Light Essence
+        case 67224:                                         // Light Essence
         case 65684:                                         // Dark Essence
+        case 67176:                                         // Dark Essence
+        case 67177:                                         // Dark Essence
+        case 67178:                                         // Dark Essence
 //
             return false;
         case 552:                                           // Abolish Disease

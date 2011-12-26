@@ -9805,8 +9805,8 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     return;
 // patch powering up
                 case 67590: // 10 N
-                case 67602: // 10 H
-                case 67603: // 25 N
+                case 67602: // 25 N
+                case 67603: // 10 H
                 case 67604: // 25 H
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
@@ -9815,7 +9815,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     uint16 stacks = 0;
 
                     if(unitTarget->HasAura(m_spellInfo->Id))
-                        stacks = unitTarget->GetAura(m_spellInfo->Id, EFFECT_INDEX_0)->GetStackAmount();
+                        stacks = unitTarget->GetSpellAuraHolder(m_spellInfo->Id)->GetStackAmount();
 
                     if(stacks >= 99)
                     {
@@ -9830,22 +9830,22 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                                 else if (unitTarget->HasAura(65684))
                                     unitTarget->CastSpell(unitTarget, 65724, true);
                                 break;
-                            case 67602: // 10 H
-                                if (unitTarget->HasAura(65686))
-                                    unitTarget->CastSpell(unitTarget, 67217, true);
-                                else if (unitTarget->HasAura(65684))
-                                    unitTarget->CastSpell(unitTarget, 67214, true);
-                                break;
-                            case 67603: // 25 N
-                                if (unitTarget->HasAura(65686))
+                            case 67602: // 25 N
+                                if (unitTarget->HasAura(67222))
                                     unitTarget->CastSpell(unitTarget, 67216, true);
-                                else if (unitTarget->HasAura(65684))
+                                else if (unitTarget->HasAura(67176))
                                     unitTarget->CastSpell(unitTarget, 67213, true);
                                 break;
+                            case 67603: // 10 H
+                                if (unitTarget->HasAura(67223))
+                                    unitTarget->CastSpell(unitTarget, 67217, true);
+                                else if (unitTarget->HasAura(67177))
+                                    unitTarget->CastSpell(unitTarget, 67214, true);
+                                break;
                             case 67604: // 25 H
-                                if (unitTarget->HasAura(65686))
+                                if (unitTarget->HasAura(67224))
                                     unitTarget->CastSpell(unitTarget, 67218, true);
-                                else if (unitTarget->HasAura(65684))
+                                else if (unitTarget->HasAura(67178))
                                     unitTarget->CastSpell(unitTarget, 67215, true);
                                 break;
                             default:

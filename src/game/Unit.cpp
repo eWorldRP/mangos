@@ -2300,6 +2300,70 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
                         currentAbsorb = max_absorb;
                     break;
                 }
+                switch (spellProto->Id)
+                {
+                    case 65684:     //Dark Essence
+                    case 67176:
+                    case 67177:
+                    case 67178:
+                    case 65686:     //Light Essence
+                    case 67222:
+                    case 67223:
+                    case 67224:
+                    {
+                        uint32 uiPowering = RemainingDamage / 1000;
+                        uint32 powerUpEntry;
+                        uint32 speedEntry;
+                        switch (spellProto->Id)
+                        {
+                            case 65684:     //N10
+                            case 65686:
+                                powerUpEntry = 67590;
+                                speedEntry = 65828;
+                                break;
+                            case 67176:     //N25
+                            case 67222:
+                                powerUpEntry = 67602;
+                                speedEntry = 67241;
+                                break;
+                            case 67177:     //H10
+                            case 67223:
+                                powerUpEntry = 67603;
+                                speedEntry = 67242;
+                                break;
+                            case 67178:     //H25
+                            case 67224:
+                                powerUpEntry = 67604;
+                                speedEntry = 67243;
+                                break;
+                        }
+
+                        if (urand(0, 100) <= 30)            // Surge of Speed
+                            CastSpell(this, speedEntry, true);
+
+                        if (SpellAuraHolderPtr pPowerUp = GetSpellAuraHolder(powerUpEntry))
+                        {
+                            uint32 uiActualtack = pPowerUp->GetStackAmount();
+                            if (uiActualtack + uiPowering <= 100)
+                                pPowerUp->ModStackAmount(uiPowering);
+                            else
+                                pPowerUp->ModStackAmount(100 - uiActualtack);
+
+                            uiActualtack = pPowerUp->GetStackAmount();
+                            if (uiActualtack == 100)
+                                CastSpell(this, powerUpEntry, true);
+                        }
+                        else
+                        {
+                            CastSpell(this, powerUpEntry, true);
+                            if (SpellAuraHolderPtr pPowerUp = GetSpellAuraHolder(powerUpEntry))
+                                pPowerUp->ModStackAmount(uiPowering - 1);
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                }
                 break;
             }
             case SPELLFAMILY_DRUID:
