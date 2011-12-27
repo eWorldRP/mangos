@@ -1823,6 +1823,27 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     ((Creature*)unitTarget)->ForcedDespawn(10000);
                     return;
                 }
+                case 39246:                             // Fumping
+                    switch(urand(0,2))
+                    {
+                        case 0:         // summon Hai'shuldun
+                            if (Creature* pWorm = m_caster->SummonCreature(22038, unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000))
+                                pWorm->AI()->AttackStart(m_caster);
+                            break;
+                        case 1:         // summon Sand Gnomes
+                            if (Creature* pSandGnome = m_caster->SummonCreature(22483, unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000))
+                                pSandGnome->AI()->AttackStart(m_caster);
+                            if (Creature* pSandGnome = m_caster->SummonCreature(22483, unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000))
+                                pSandGnome->AI()->AttackStart(m_caster);
+                            break;
+                        case 2:         // summon Bone Sifter
+                            if (Creature* pMatureBoneSifter = m_caster->SummonCreature(22482, unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000))
+                                pMatureBoneSifter->AI()->AttackStart(m_caster);
+                            if (Creature* pMatureBoneSifter = m_caster->SummonCreature(22482, unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 30000))
+                                pMatureBoneSifter->AI()->AttackStart(m_caster);
+                            break;
+                    }
+                    break;
 // patch quest Fires Over Skettis
                 case 39844:                                 // Quest Fires Over Skettis
                 {
