@@ -694,6 +694,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
 //patch Recently Bandaged
         case 11196:
 //
+        case 26004:                                         // Mistletoe
         case 37675:                                         // Chaos Blast
         case 42786:                                         // Echo Of Ymiron
         case 56266:                                         // Vortex
