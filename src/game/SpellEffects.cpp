@@ -9267,7 +9267,9 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     if (!unitTarget)
                         return;
 
-                    unitTarget->CastSpell(unitTarget, 57292, true);
+                    unitTarget->CastSpell(unitTarget, 45548, true);     // Food
+                    unitTarget->CastSpell(unitTarget, 57073, true);     // Drink
+                    unitTarget->CastSpell(unitTarget, 57399, true);     // Well Fed
                     break;
                 }
                 case 58466:                                 // Gigantic Feast
