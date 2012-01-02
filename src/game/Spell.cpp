@@ -2426,6 +2426,21 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 }
             }
 //
+            // Spider Frenzy
+            if (m_spellInfo->Id == 66129)
+            {
+                for (UnitList::iterator itr = targetUnitMap.begin(), next; itr != targetUnitMap.end(); itr = next)
+                {
+                    next = itr;
+                    ++next;
+
+                    if ((*itr)->GetEntry() != 34607 &&
+                        (*itr)->GetEntry() != 34648 &&
+                        (*itr)->GetEntry() != 35655 &&
+                        (*itr)->GetEntry() != 35656)
+                        targetUnitMap.erase(itr);
+                }
+            }
             // exclude caster
             targetUnitMap.remove(m_caster);
             break;

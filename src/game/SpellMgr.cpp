@@ -733,6 +733,10 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 67177:                                         // Dark Essence
         case 67178:                                         // Dark Essence
 //
+        case 66193:                                        // Permafrost
+        case 67855:                                        // Permafrost
+        case 67856:                                        // Permafrost
+        case 67857:                                        // Permafrost
             return false;
         case 552:                                           // Abolish Disease
         case 12042:                                         // Arcane Power
@@ -762,6 +766,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 61716:                                         // Rabbit Costume
         case 61734:                                         // Noblegarden Bunny
 //
+        case 66129:                                         // Spider Frenzy
         case 67369:                                         // Grunty Focus
         case 67398:                                         // Zergling Periodic Effect
             return true;
