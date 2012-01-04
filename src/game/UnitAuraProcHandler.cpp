@@ -1951,12 +1951,6 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     basepoints[0] = int32(damage * triggerAmount  / 100);
                     break;
                 }
-                // Glyph of Starfire
-                case 54845:
-                {
-                    triggered_spell_id = 54846;
-                    break;
-                }
                 // Glyph of Shred
                 case 54815:
                 {
@@ -1968,6 +1962,12 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                 case 54821:
                 {
                     triggered_spell_id = 54820;
+                    break;
+                }
+                // Glyph of Starfire
+                case 54845:
+                {
+                    triggered_spell_id = 54846;
                     break;
                 }
                 // Item - Druid T10 Restoration 4P Bonus (Rejuvenation)
@@ -2910,14 +2910,14 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                 // Item - Shaman T10 Elemental 4P Bonus
                 case 70817:
                 {
-                    if (Aura *aur = pVictim->GetAura<SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_SHAMAN, CF_SHAMAN_FLAME_SHOCK>(GetObjectGuid()))
+                    if (Aura* aura = pVictim->GetAura<SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_SHAMAN, CF_SHAMAN_FLAME_SHOCK>(GetObjectGuid()))
                     {
-                        SpellAuraHolderPtr aurHolder = GetSpellAuraHolder(aur->GetId());
-                        if (aurHolder)
+                        SpellAuraHolderPtr holder = aura->GetHolder();
+                        if (holder)
                         {
-                            int32 amount = aur->GetAuraDuration() + triggerAmount * IN_MILLISECONDS;
-                            aurHolder->SetAuraDuration(amount);
-                            aurHolder->SendAuraUpdate(false);
+                            int32 duration = aura->GetAuraDuration() + triggerAmount * IN_MILLISECONDS;
+                            holder->SetAuraMaxDuration(duration);
+                            holder->RefreshHolder();
                             return SPELL_AURA_PROC_OK;
                         }
                     }
@@ -3394,6 +3394,11 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     triggered_spell_id=61895; // Offhand Blood-Caked Strike
                 break;
             }
+            // Hungering Cold - not proc from dummy
+            if (dummySpell->SpellIconID == 2797)
+            {
+                return SPELL_AURA_PROC_CANT_TRIGGER;
+            }
             break;
         }
         case SPELLFAMILY_PET:
@@ -3612,7 +3617,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 //case 54072: break;                        // Knockback Ball Passive
                 //case 54476: break;                        // Blood Presence
                 //case 54775: break;                        // Abandon Vehicle on Poly
-                case 56702:                                 //
+                case 56702:                                 // Shadow Sickle
                 {
                     trigger_spell_id = 56701;
                     break;
@@ -3896,14 +3901,13 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 if(GetShapeshiftForm() != FORM_SHADOW)
                     return SPELL_AURA_PROC_FAILED;
             }
-//patch Improved Spirit Tap + Mind Flay
-            else if (auraSpellInfo->SpellIconID == 152 && 
-                    procSpell && procSpell->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_MIND_FLAY1>()
-                    && urand(0,1)) 
+            // Improved Spirit Tap
+            else if (auraSpellInfo->Id == 15337 || auraSpellInfo->Id == 15338)
             {
+                // proc chance for Mind Flay is 2 times lower, so we have to roll for 50% now
+                if (procSpell->SpellIconID == 548 && roll_chance_i(50))
                     return SPELL_AURA_PROC_FAILED;
             }
-//
             break;
         }
         case SPELLFAMILY_DRUID:
@@ -5250,11 +5254,16 @@ SpellAuraProcResult Unit::IsTriggeredAtCustomProcEvent(Unit *pVictim, SpellAuraH
                 case SPELL_AURA_MOD_ROOT:
                 case SPELL_AURA_TRANSFORM:
                 {
-                    if (EventProcFlag &&
+                    if ((EventProcFlag || spellProcEvent) &&
                         procFlag & PROC_FLAG_TAKEN_ANY_DAMAGE &&
-                        spellProto->AuraInterruptFlags & AURA_INTERRUPT_FLAG_DAMAGE)
+                        (spellProto->AuraInterruptFlags & AURA_INTERRUPT_FLAG_DAMAGE ||
+                        spellProto->Attributes & SPELL_ATTR_BREAKABLE_BY_DAMAGE))
                         return SPELL_AURA_PROC_OK;
-                    else if (EventProcFlag)
+                    else if (procFlag & PROC_FLAG_TAKEN_ANY_DAMAGE &&
+                        (spellProto->AuraInterruptFlags & AURA_INTERRUPT_FLAG_DAMAGE &&
+                        spellProto->AttributesEx & SPELL_ATTR_EX_BREAKABLE_BY_ANY_DAMAGE))
+                        return SPELL_AURA_PROC_OK;
+                    else if (EventProcFlag || spellProcEvent)
                         return SPELL_AURA_PROC_FAILED;
                     else
                         return SPELL_AURA_PROC_CANT_TRIGGER;

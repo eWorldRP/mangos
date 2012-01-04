@@ -362,6 +362,7 @@ bool AntiCheat::CheckNeeded(AntiCheatCheck checktype)
 {
     if (!sWorld.getConfig(CONFIG_BOOL_ANTICHEAT_ENABLE)
         || !GetPlayer()->IsInWorld()
+        || !GetPlayer()->GetMap()
         || GetPlayer()->IsBeingTeleported()
         || GetPlayer()->GetPlayerbotAI()
         || GetPlayer()->GetSession()->GetSecurity() > int32(sWorld.getConfig(CONFIG_UINT32_ANTICHEAT_GMLEVEL)))
@@ -389,7 +390,6 @@ bool AntiCheat::CheckNeeded(AntiCheatCheck checktype)
             if (   GetPlayer()->GetTransport()
                 || GetPlayer()->HasMovementFlag(MOVEFLAG_ONTRANSPORT)
                 || GetPlayer()->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_CONFUSED)
-                || GetMover()->GetMotionMaster()->GetCurrentMovementGeneratorType() == FLIGHT_MOTION_TYPE
                 || GetPlayer()->IsTaxiFlying())
                 return false;
             break;

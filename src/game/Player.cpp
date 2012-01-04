@@ -1449,10 +1449,13 @@ void Player::Update( uint32 update_diff, uint32 p_time )
         TeleportTo(m_teleport_dest, m_teleport_options);
 
     // Playerbot mod
-    if (m_playerbotAI)
-        m_playerbotAI->UpdateAI(p_time);
-    else if (m_playerbotMgr)
-        m_playerbotMgr->UpdateAI(p_time);
+    if (!sWorld.getConfig(CONFIG_BOOL_PLAYERBOT_DISABLE))
+    {
+        if (m_playerbotAI)
+            m_playerbotAI->UpdateAI(p_time);
+        else if (m_playerbotMgr)
+            m_playerbotMgr->UpdateAI(p_time);
+    }
 }
 
 void Player::SetDeathState(DeathState s)
@@ -1708,6 +1711,29 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
         return false;
     }
 
+    if (GetMapId() != mapid)
+    {
+        if (!(options & TELE_TO_CHECKED))
+        {
+            if (!CheckTransferPossibility(mapid))
+            {
+                if (GetTransport())
+                    TeleportToHomebind();
+
+                DEBUG_LOG("Player::TeleportTo %s is NOT teleported to map %u (requirements check failed)", GetName(), mapid);
+
+                return false;                                       // normal client can't teleport to this map...
+            }
+            else
+                options |= TELE_TO_CHECKED;
+        }
+        DEBUG_LOG("Player::TeleportTo %s is being far teleported to map %u", GetName(), mapid);
+    }
+    else
+    {
+        DEBUG_LOG("Player::TeleportTo %s is being near teleported to map %u", GetName(), mapid);
+    }
+
     // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
     Pet* pet = GetPet();
 
@@ -1718,28 +1744,18 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
 
     MapEntry const* mEntry = sMapStore.LookupEntry(mapid);
 
+    if(!mEntry)
+    {
+        sLog.outError("TeleportTo: invalid map entry (id %d). possible disk or memory error.", mapid);
+        return false;
+    }
+
     // don't let enter battlegrounds without assigned battleground id (for example through areatrigger)...
     // don't let gm level > 1 either
     if(!InBattleGround() && mEntry->IsBattleGroundOrArena())
         return false;
 
     // client without expansion support
-    if (GetSession()->Expansion() < mEntry->Expansion())
-    {
-        DEBUG_LOG("Player %s using client without required expansion tried teleport to non accessible map %u", GetName(), mapid);
-
-        if (GetTransport())
-//            RepopAtGraveyard();                             // teleport to near graveyard if on transport, looks blizz like :)
-            TeleportToHomebind();                             // teleport to homebind instead of graveyard if on transport, not fully blizzlike, but not may cause teleport cycle.
-
-        SendTransferAborted(mapid, TRANSFER_ABORT_INSUF_EXPAN_LVL, mEntry->Expansion());
-
-        return false;                                       // normal client can't teleport to this map...
-    }
-    else
-    {
-        DEBUG_LOG("Player %s is being teleported to map %u", GetName(), mapid);
-    }
 
     // if we were on a transport, leave
     if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && m_transport)
@@ -2073,7 +2089,7 @@ void Player::RegenerateAll(uint32 diff)
 {
     // Not in combat or they have regeneration
     if (!isInCombat() || HasAuraType(SPELL_AURA_MOD_REGEN_DURING_COMBAT) ||
-        HasAuraType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT) || IsPolymorphed() )
+        HasAuraType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT) || IsPolymorphed() || m_baseHealthRegen )
     {
         RegenerateHealth(diff);
         if (!isInCombat() && !HasAuraType(SPELL_AURA_INTERRUPT_REGEN))
@@ -2135,7 +2151,8 @@ void Player::Regenerate(Powers power, uint32 diff)
         {
             float RunicPowerDecreaseRate = sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_RUNICPOWER_LOSS);
             addvalue = 30 * RunicPowerDecreaseRate;         // 3 RunicPower by tick
-        }   break;
+            break;
+        }
         case POWER_RUNE:
         {
             if (getClass() != CLASS_DEATH_KNIGHT)
@@ -2174,6 +2191,7 @@ void Player::Regenerate(Powers power, uint32 diff)
         case POWER_FOCUS:
         case POWER_HAPPINESS:
         case POWER_HEALTH:
+        default:
             break;
     }
 
@@ -13596,6 +13614,10 @@ void Player::ApplyEnchantment(Item *item, EnchantmentSlot slot, bool apply, bool
                             ((Player*)this)->ApplySpellPowerBonus(enchant_amount, apply);
                             DEBUG_LOG("+ %u SPELL_POWER", enchant_amount);
                             break;
+                        case ITEM_MOD_HEALTH_REGEN:
+                            ((Player*)this)->ApplyHealthRegenBonus(enchant_amount, apply);
+                            DEBUG_LOG("+ %u HEALTH_REGENERATION", enchant_amount);
+                            break;
                         case ITEM_MOD_BLOCK_VALUE:
                             HandleBaseModValue(SHIELD_BLOCK_VALUE, FLAT_MOD, float(enchant_amount), apply);
                             break;
@@ -13753,9 +13775,6 @@ void Player::PrepareGossipMenu(WorldObject *pSource, uint32 menuId)
                     canSeeQuests = false;
                 continue;
             }
-
-            if (itr->second.option_id == GOSSIP_OPTION_AUTOSCRIPT)
-                GetMap()->ScriptsStart(sGossipScripts, itr->second.action_script_id, this, pSource);
         }
 
         if (pSource->GetTypeId() == TYPEID_UNIT)
@@ -13985,12 +14004,12 @@ void Player::OnGossipSelect(WorldObject* pSource, uint32 gossipListId, uint32 me
         }
     }
 
-    switch(gossipOptionId)
+    GossipMenuItemData pMenuData = gossipmenu.GetItemData(gossipListId);
+
+    switch (gossipOptionId)
     {
         case GOSSIP_OPTION_GOSSIP:
         {
-            GossipMenuItemData pMenuData = gossipmenu.GetItemData(gossipListId);
-
             if (pMenuData.m_gAction_poi)
                 PlayerTalkClass->SendPointOfInterest(pMenuData.m_gAction_poi);
 
@@ -14005,15 +14024,6 @@ void Player::OnGossipSelect(WorldObject* pSource, uint32 gossipListId, uint32 me
                 PlayerTalkClass->CloseGossip();
                 TalkedToCreature(pSource->GetEntry(), pSource->GetObjectGuid());
             }
-
-            if (pMenuData.m_gAction_script)
-            {
-                if (pSource->GetTypeId() == TYPEID_GAMEOBJECT)
-                    GetMap()->ScriptsStart(sGossipScripts, pMenuData.m_gAction_script, this, pSource);
-                else if (pSource->GetTypeId() == TYPEID_UNIT)
-                    GetMap()->ScriptsStart(sGossipScripts, pMenuData.m_gAction_script, pSource, this);
-            }
-
             break;
         }
         case GOSSIP_OPTION_SPIRITHEALER:
@@ -14084,6 +14094,14 @@ void Player::OnGossipSelect(WorldObject* pSource, uint32 gossipListId, uint32 me
             GetSession()->SendBattlegGroundList(guid, bgTypeId);
             break;
         }
+    }
+
+    if (pMenuData.m_gAction_script)
+    {
+        if (pSource->GetTypeId() == TYPEID_UNIT)
+            GetMap()->ScriptsStart(sGossipScripts, pMenuData.m_gAction_script, pSource, this);
+        else if (pSource->GetTypeId() == TYPEID_GAMEOBJECT)
+            GetMap()->ScriptsStart(sGossipScripts, pMenuData.m_gAction_script, this, pSource);
     }
 }
 
@@ -14394,6 +14412,19 @@ bool Player::CanCompleteQuest(uint32 quest_id) const
             return true;
 
         return false;
+    }
+
+    // Anti WPE for client command /script CompleteQuest() on quests with AutoComplete flag
+    if (status == QUEST_STATUS_NONE)
+    {
+        for (uint32 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
+        {
+            if (qInfo->ReqItemCount[i] != 0 &&
+                GetItemCount(qInfo->ReqItemId[i]) < qInfo->ReqItemCount[i])
+            {
+                return false;
+            }
+        }
     }
 
     // auto complete quest
@@ -16473,7 +16504,10 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
     DungeonPersistentState* state = GetBoundInstanceSaveForSelfOrGroup(GetMapId());
 
     // load the player's map here if it's not already loaded
-    SetMap(sMapMgr.CreateMap(GetMapId(), this));
+    if (Map* map = sMapMgr.CreateMap(GetMapId(), this))
+        SetMap(map);
+    else
+        RelocateToHomebind();
 
     // if the player not at BG and is in an instance and it has been reset in the meantime teleport him to the entrance
     if (!player_at_bg && GetInstanceId() && !state)
@@ -16696,7 +16730,11 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
 
         //we can be relocated from taxi and still have an outdated Map pointer!
         //so we need to get a new Map pointer!
-        SetMap(sMapMgr.CreateMap(GetMapId(), this));
+        if (Map* map = sMapMgr.CreateMap(GetMapId(), this))
+            SetMap(map);
+        else
+            RelocateToHomebind();
+
         SaveRecallPosition();                           // save as recall also to prevent recall and fall from sky
 
         m_taxi.ClearTaxiDestinations();
@@ -20053,7 +20091,7 @@ bool Player::ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature* npc 
     }
 
     // check node starting pos data set case if provided
-    if (node->x != 0.0f || node->y != 0.0f || node->z != 0.0f)
+    if (fabs(node->x) > M_NULL_F || fabs(node->y) > M_NULL_F || fabs(node->z) > M_NULL_F)
     {
         if (node->map_id != GetMapId() ||
             (node->x - GetPositionX())*(node->x - GetPositionX())+
@@ -22048,11 +22086,9 @@ void Player::RemoveItemDependentAurasAndCasts( Item * pItem )
     SpellAuraHolderMap& auras = GetSpellAuraHolderMap();
     for(SpellAuraHolderMap::const_iterator itr = auras.begin(); itr != auras.end(); )
     {
-        SpellAuraHolderPtr holder = itr->second;
-
         // skip passive (passive item dependent spells work in another way) and not self applied auras
-        SpellEntry const* spellInfo = holder->GetSpellProto();
-        if (holder->IsPassive() ||  holder->GetCasterGuid() != GetObjectGuid())
+        SpellEntry const* spellInfo = itr->second->GetSpellProto();
+        if (itr->second->IsPassive() ||  itr->second->GetCasterGuid() != GetObjectGuid())
         {
             ++itr;
             continue;
@@ -22061,7 +22097,7 @@ void Player::RemoveItemDependentAurasAndCasts( Item * pItem )
         // Remove spells triggered by equipped item auras
         if (pItem->HasTriggeredByAuraSpell(spellInfo))
         {
-            RemoveAurasDueToSpell(holder->GetId());
+            RemoveAurasDueToSpell(itr->second->GetId());
             itr = auras.begin();
             continue;
         }
@@ -22074,7 +22110,7 @@ void Player::RemoveItemDependentAurasAndCasts( Item * pItem )
         }
 
         // no alt item, remove aura, restart check
-        RemoveAurasDueToSpell(holder->GetId());
+        RemoveAurasDueToSpell(itr->second->GetId());
         itr = auras.begin();
     }
 
@@ -22306,17 +22342,21 @@ void Player::UpdateZoneDependentAuras()
 void Player::UpdateAreaDependentAuras()
 {
     // remove auras from spells with area limitations
-    for(SpellAuraHolderMap::iterator iter = m_spellAuraHolders.begin(); iter != m_spellAuraHolders.end();)
+    SpellIdSet toRemoveSpellList;
     {
-        // use m_zoneUpdateId for speed: UpdateArea called from UpdateZone or instead UpdateZone in both cases m_zoneUpdateId up-to-date
-        if (iter->second && (sSpellMgr.GetSpellAllowedInLocationError(iter->second->GetSpellProto(), GetMapId(), m_zoneUpdateId, m_areaUpdateId, this) != SPELL_CAST_OK))
+        MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
+        SpellAuraHolderMap const& holdersMap = GetSpellAuraHolderMap();
+        for(SpellAuraHolderMap::const_iterator iter = holdersMap.begin(); iter != holdersMap.end(); ++iter)
         {
-            RemoveSpellAuraHolder(iter->second);
-            iter = m_spellAuraHolders.begin();
+            // use m_zoneUpdateId for speed: UpdateArea called from UpdateZone or instead UpdateZone in both cases m_zoneUpdateId up-to-date
+            if (iter->second && (sSpellMgr.GetSpellAllowedInLocationError(iter->second->GetSpellProto(), GetMapId(), m_zoneUpdateId, m_areaUpdateId, this) != SPELL_CAST_OK))
+                toRemoveSpellList.insert(iter->first);
         }
-        else
-            ++iter;
     }
+
+    if (!toRemoveSpellList.empty())
+        for (SpellIdSet::iterator i = toRemoveSpellList.begin(); i != toRemoveSpellList.end(); ++i)
+            RemoveAurasDueToSpell(*i);
 
     // some auras applied at subzone enter
     SpellAreaForAreaMapBounds saBounds = sSpellMgr.GetSpellAreaForAreaMapBounds(m_areaUpdateId);
@@ -22757,7 +22797,7 @@ bool Player::ActivateRunes(RuneType type, uint32 count)
     bool modify = false;
     for(uint32 j = 0; count > 0 && j < MAX_RUNES; ++j)
     {
-        if (GetRuneCooldown(j) && GetCurrentRune(j) == type)
+        if (GetCurrentRune(j) == type && GetRuneCooldown(j) > 0)
         {
             SetRuneCooldown(j, 0);
             --count;
@@ -23199,6 +23239,7 @@ void Player::HandleFall(MovementInfo const& movementInfo)
             DEBUG_LOG("FALLDAMAGE z=%f sz=%f pZ=%f FallTime=%d mZ=%f damage=%d SF=%d" , movementInfo.GetPos()->z, height, GetPositionZ(), movementInfo.GetFallTime(), height, damage, safe_fall);
         }
     }
+    RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_LANDING);     // Remove auras that should be removed at landing
 }
 
 void Player::UpdateAchievementCriteria( AchievementCriteriaTypes type, uint32 miscvalue1/*=0*/, uint32 miscvalue2/*=0*/, Unit *unit/*=NULL*/, uint32 time/*=0*/ )
@@ -23506,6 +23547,7 @@ void Player::UnsummonPetTemporaryIfAny(bool full)
                 else
                     pet->Unsummon(PET_SAVE_NOT_IN_SLOT, this);
             }
+            DEBUG_LOG("Player::UnsummonPetTemporaryIfAny tempusummon pet %s ",(*itr).GetString().c_str());
         }
     }
 
@@ -24482,7 +24524,6 @@ bool Player::IsReferAFriendLinked(Player* target)
 
 AreaLockStatus Player::GetAreaTriggerLockStatus(AreaTrigger const* at, Difficulty difficulty)
 {
-
     if (!at)
         return AREA_LOCKSTATUS_UNKNOWN_ERROR;
 
@@ -24502,6 +24543,10 @@ AreaLockStatus Player::GetAreaTriggerLockStatus(AreaTrigger const* at, Difficult
 
     if (getLevel() < at->requiredLevel && !sWorld.getConfig(CONFIG_BOOL_INSTANCE_IGNORE_LEVEL))
         return AREA_LOCKSTATUS_TOO_LOW_LEVEL;
+
+    if (mapEntry->IsDungeon() && mapEntry->IsRaid() && !sWorld.getConfig(CONFIG_BOOL_INSTANCE_IGNORE_RAID))
+        if (!GetGroup() || !GetGroup()->isRaidGroup())
+            return AREA_LOCKSTATUS_RAID_LOCKED;
 
     // must have one or the other, report the first one that's missing
     if (at->requiredItem)
@@ -24581,6 +24626,19 @@ AreaLockStatus Player::GetAreaTriggerLockStatus(AreaTrigger const* at, Difficult
             return AREA_LOCKSTATUS_ZONE_IN_COMBAT;
         }
     }
+    if (map && map->IsDungeon())
+    {
+        // cannot enter if the instance is full (player cap), GMs don't count
+        if (((DungeonMap*)map)->GetPlayersCountExceptGMs() >= ((DungeonMap*)map)->GetMaxPlayers())
+            return AREA_LOCKSTATUS_INSTANCE_IS_FULL;
+
+        InstancePlayerBind* pBind = GetBoundInstance(at->target_mapId, GetDifficulty(mapEntry->IsRaid()));
+        if (pBind && pBind->perm && pBind->state != state)
+            return AREA_LOCKSTATUS_HAS_BIND;
+
+        if (pBind && pBind->perm && pBind->state != map->GetPersistentState())
+            return AREA_LOCKSTATUS_HAS_BIND;
+    }
 
     return AREA_LOCKSTATUS_OK;
 };
@@ -24588,6 +24646,173 @@ AreaLockStatus Player::GetAreaTriggerLockStatus(AreaTrigger const* at, Difficult
 AreaLockStatus Player::GetAreaLockStatus(uint32 mapId, Difficulty difficulty)
 {
     return GetAreaTriggerLockStatus(sObjectMgr.GetMapEntranceTrigger(mapId), difficulty);
+};
+
+bool Player::CheckTransferPossibility(uint32 mapId)
+{
+    if (mapId == GetMapId())
+        return true;
+
+    MapEntry const* targetMapEntry = sMapStore.LookupEntry(mapId);
+    if (!targetMapEntry)
+        return false;
+
+    // Battleground requirements checked in another place
+    if(InBattleGround() && targetMapEntry->IsBattleGroundOrArena())
+        return true;
+
+    AreaTrigger const* at = sObjectMgr.GetMapEntranceTrigger(mapId);
+    if (!at)
+    {
+        if (targetMapEntry->IsContinent())
+        {
+            if (isGameMaster())
+                return true;
+            if (GetSession()->Expansion() < targetMapEntry->Expansion())
+                return false;
+            return true;
+        }
+        return false;
+    }
+
+    return CheckTransferPossibility(at, targetMapEntry->IsContinent());
+}
+
+bool Player::CheckTransferPossibility(AreaTrigger const*& at, bool b_onlyMainReq)
+{
+    if (!at)
+        return false;
+
+    if (at->target_mapId == GetMapId())
+        return true;
+
+    MapEntry const* targetMapEntry = sMapStore.LookupEntry(at->target_mapId);
+
+    if (!targetMapEntry)
+        return false;
+
+    if (!isGameMaster())
+    {
+        // ghost resurrected at enter attempt to dungeon with corpse (including fail enter cases)
+        if (!isAlive() && targetMapEntry->IsDungeon())
+        {
+            int32 corpseMapId = 0;
+            if (Corpse *corpse = GetCorpse())
+                corpseMapId = corpse->GetMapId();
+
+            // check back way from corpse to entrance
+            uint32 instance_map = corpseMapId;
+            do
+            {
+                // most often fast case
+                if (instance_map == targetMapEntry->MapID)
+                    break;
+
+                InstanceTemplate const* instance = ObjectMgr::GetInstanceTemplate(instance_map);
+                instance_map = instance ? instance->parent : 0;
+            }
+            while (instance_map);
+
+            // corpse not in dungeon or some linked deep dungeons
+            if (!instance_map)
+            {
+                WorldPacket data(SMSG_AREA_TRIGGER_NO_CORPSE);
+                GetSession()->SendPacket(&data);
+                return false;
+            }
+
+            // need find areatrigger to inner dungeon for landing point
+            if (at->target_mapId != corpseMapId)
+            {
+                if (AreaTrigger const* corpseAt = sObjectMgr.GetMapEntranceTrigger(corpseMapId))
+                {
+                    targetMapEntry = sMapStore.LookupEntry(corpseAt->target_mapId);
+                    at = corpseAt;
+                }
+            }
+
+            // now we can resurrect player, and then check teleport requirements
+            ResurrectPlayer(0.5f);
+            SpawnCorpseBones();
+        }
+    }
+
+    AreaLockStatus status = GetAreaTriggerLockStatus(at, GetDifficulty(targetMapEntry->IsRaid()));
+
+    DEBUG_LOG("Player::CheckTransferPossibility %s check lock status of map %u (difficulty %u), result is %u", GetObjectGuid().GetString().c_str(), at->target_mapId, GetDifficulty(targetMapEntry->IsRaid()), status);
+
+    if (b_onlyMainReq)
+    {
+        switch (status)
+        {
+            case AREA_LOCKSTATUS_MISSING_ITEM:
+            case AREA_LOCKSTATUS_QUEST_NOT_COMPLETED:
+            case AREA_LOCKSTATUS_INSTANCE_IS_FULL:
+            case AREA_LOCKSTATUS_ZONE_IN_COMBAT:
+            case AREA_LOCKSTATUS_TOO_LOW_LEVEL:
+                return true;
+            default:
+                break;
+        }
+    }
+
+    switch (status)
+    {
+        case AREA_LOCKSTATUS_OK:
+            return true;
+        case AREA_LOCKSTATUS_TOO_LOW_LEVEL:
+            GetSession()->SendAreaTriggerMessage(GetSession()->GetMangosString(LANG_LEVEL_MINREQUIRED), at->requiredLevel);
+            return false;
+        case AREA_LOCKSTATUS_ZONE_IN_COMBAT:
+            SendTransferAborted(at->target_mapId, TRANSFER_ABORT_ZONE_IN_COMBAT);
+            return false;
+        case AREA_LOCKSTATUS_INSTANCE_IS_FULL:
+            SendTransferAborted(at->target_mapId, TRANSFER_ABORT_MAX_PLAYERS);
+            return false;
+        case AREA_LOCKSTATUS_QUEST_NOT_COMPLETED:
+            if(at->target_mapId == 269)
+            {
+                GetSession()->SendAreaTriggerMessage("%s", at->requiredFailedText.c_str());
+                return false;
+            }
+            // No break here!
+        case AREA_LOCKSTATUS_MISSING_ITEM:
+            {
+                MapDifficultyEntry const* mapDiff = GetMapDifficultyData(targetMapEntry->MapID,GetDifficulty(targetMapEntry->IsRaid()));
+                if (mapDiff && mapDiff->mapDifficultyFlags & MAP_DIFFICULTY_FLAG_CONDITION)
+                {
+                    GetSession()->SendAreaTriggerMessage("%s", mapDiff->areaTriggerText[GetSession()->GetSessionDbcLocale()]);
+                }
+                // do not report anything for quest areatriggers
+                DEBUG_LOG("HandleAreaTriggerOpcode:  LockAreaStatus %u, do action", uint8(GetAreaTriggerLockStatus(at, GetDifficulty(targetMapEntry->IsRaid()))));
+                return false;
+            }
+        case AREA_LOCKSTATUS_MISSING_DIFFICULTY:
+            {
+                Difficulty difficulty = GetDifficulty(targetMapEntry->IsRaid());
+                SendTransferAborted(at->target_mapId, TRANSFER_ABORT_DIFFICULTY, difficulty > RAID_DIFFICULTY_10MAN_HEROIC ? RAID_DIFFICULTY_10MAN_HEROIC : difficulty);
+                return false;
+            }
+        case AREA_LOCKSTATUS_INSUFFICIENT_EXPANSION:
+            SendTransferAborted(at->target_mapId, TRANSFER_ABORT_INSUF_EXPAN_LVL, targetMapEntry->Expansion());
+            return false;
+        case AREA_LOCKSTATUS_NOT_ALLOWED:
+        case AREA_LOCKSTATUS_HAS_BIND:
+            SendTransferAborted(at->target_mapId, TRANSFER_ABORT_MAP_NOT_ALLOWED);
+            return false;
+        // TODO: messages for other cases
+        case AREA_LOCKSTATUS_RAID_LOCKED:
+            SendTransferAborted(at->target_mapId, TRANSFER_ABORT_NEED_GROUP);
+            return false;
+        // TODO: messages for other cases
+        case AREA_LOCKSTATUS_UNKNOWN_ERROR:
+        default:
+            SendTransferAborted(at->target_mapId, TRANSFER_ABORT_ERROR);
+            sLog.outError("Player::CheckTransferPossibility player %s has unhandled AreaLockStatus %u in map %u (difficulty %u), do nothing", GetObjectGuid().GetString().c_str(), status, at->target_mapId, GetDifficulty(targetMapEntry->IsRaid()));
+            return false;
+    }
+
+    return false;
 };
 
 uint32 Player::GetEquipGearScore(bool withBags, bool withBank)

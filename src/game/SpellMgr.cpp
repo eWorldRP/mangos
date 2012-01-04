@@ -2005,7 +2005,7 @@ struct DoSpellThreat
 
         // flat threat bonus and attack power bonus currently only work properly when all
         // effects have same targets, otherwise, we'd need to seperate it by effect index
-        if (ste.threat || ste.ap_bonus != 0.f)
+        if (ste.threat || fabs(ste.ap_bonus) > M_NULL_F)
         {
             const uint32 *targetA = spell->EffectImplicitTargetA;
             //const uint32 *targetB = spell->EffectImplicitTargetB;
@@ -2450,6 +2450,7 @@ bool SpellMgr::IsStackableSpellAuraHolder(SpellEntry const* spellInfo)
             case SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
             case SPELL_AURA_POWER_BURN_MANA:
             case SPELL_AURA_CONTROL_VEHICLE:
+            case SPELL_AURA_MOD_STUN:
                 return true;
         }
     }
