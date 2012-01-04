@@ -5660,6 +5660,11 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     ToLower(rootcommand);
 //
 
+// patch enturion playerbot
+    sLog.outCustom("PlayerbotAI::HandleCommand: bot GUID %u name %s received command \"%s\" from player GUID %u name %s. Is owner: %s",m_bot->GetGUIDLow(),m_bot->GetName(),
+                  text.c_str(),fromPlayer.GetGUIDLow(),fromPlayer.GetName(),canObeyCommandFrom(fromPlayer) ? "YES" : "NO");
+//
+
     // if message is not from a player in the masters account auto reply and ignore
     if (!canObeyCommandFrom(fromPlayer))
     {
@@ -5720,7 +5725,8 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     else if (text == "report")
 // patch enturion playerbot
         //SendQuestNeedList(*GetMaster());
-        sLog.outCustom("Il player %s esegue il comando report sul bot (%s). Mappa: %u, posizione: %f %f %f", GetMaster()->GetName(), m_bot->GetName(), GetMaster()->GetMapId(), GetMaster()->GetPositionX(), GetMaster()->GetPositionY(), GetMaster()->GetPositionZ());
+        //sLog.outCustom("Il player %s esegue il comando report sul bot (%s). Mappa: %u, posizione: %f %f %f", GetMaster()->GetName(), m_bot->GetName(), GetMaster()->GetMapId(), GetMaster()->GetPositionX(), GetMaster()->GetPositionY(), GetMaster()->GetPositionZ());
+      {}
 //
     else if (text == "orders")
         SendOrders(*GetMaster());
