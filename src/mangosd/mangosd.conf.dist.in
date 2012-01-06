@@ -354,6 +354,21 @@ MapUpdate.Threads = 1
 #        Default: "" - none colors
 #        Example: "13 7 11 9"
 #
+#    CustomLogFile
+#        Custom Log File
+#        Default: "Custom.log"
+#                 "" - Empty name disable creating log file
+#
+#    CustomLogTimestamp
+#        Custom Logfile with timestamp of server start in name
+#        Default: 0 - no timestamp in name
+#                 1 - add timestamp in name in form Logname_YYYY-MM-DD_HH-MM-SS.Ext for Logname.Ext
+#
+#    CustomLogLevel
+#        Custom file level of logging
+#        0 = Minimum; 1 = Error; 2 = Detail;
+#        Default: 0
+#
 ###################################################################################################################
 
 LogSQL = 1
@@ -389,6 +404,9 @@ GmLogTimestamp = 0
 GmLogPerAccount = 0
 RaLogFile = ""
 LogColors = ""
+CustomLogFile = "Custom.log"
+CustomLogTimestamp = 0
+CustomLogLevel = 0
 
 ###################################################################################################################
 #   LEXICS CUTTER SYSTEM

@@ -156,7 +156,12 @@ class Log : public MaNGOS::Singleton<Log, MaNGOS::ClassLevelLockable<Log, ACE_Th
         void outArena( const char * str, ... )       ATTR_PRINTF(2,3);
 //                                                 // any log level
 // patch custom log
+                                                              // any customlog level
         void outCustom( const char * str, ... )       ATTR_PRINTF(2,3);
+                                                              // customlog level >= 1
+        void outCustomBasic( const char * str, ... )  ATTR_PRINTF(2,3);
+                                                              // customlog level >= 2
+        void outCustomDetail( const char * str, ... ) ATTR_PRINTF(2,3);
 //    
         void outWorldPacketDump( uint32 socket, uint32 opcode, char const* opcodeName, ByteBuffer const* packet, bool incoming );
         // any log level
@@ -189,9 +194,10 @@ class Log : public MaNGOS::Singleton<Log, MaNGOS::ClassLevelLockable<Log, ACE_Th
         FILE* worldLogfile;
 // patch arena Log
         FILE* arenaLogfile;
-//        
+//
 // patch custom log
         FILE* customLogfile;
+        LogLevel m_customLevel;
 //
         // log/console control
         LogLevel m_logLevel;

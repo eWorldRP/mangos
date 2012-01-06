@@ -270,6 +270,7 @@ void Log::Initialize()
 
 // patch custom Log
     customLogfile = openLogFile("CustomLogFile","CustomLogTimestamp","a");
+    m_customLevel = LogLevel(sConfig.GetIntDefault("CustomLogLevel", 0));
 //
 
     // Main log file settings
@@ -899,6 +900,48 @@ void Log::outCustom(const char * str, ... )
         fprintf(customLogfile, "\n" );
         va_end(ap);
         fflush(customLogfile);
+    }
+}
+
+void Log::outCustomBasic(const char * str, ... )
+{
+
+    if (!str)
+        return;
+
+    if (m_customLevel >= LOG_LVL_BASIC)
+    {
+        if (customLogfile)
+        {
+            va_list ap;
+            outTimestamp(customLogfile);
+            va_start(ap, str);
+            vfprintf(customLogfile, str, ap);
+            fprintf(customLogfile, "\n" );
+            va_end(ap);
+            fflush(customLogfile);
+        }
+    }
+}
+
+void Log::outCustomDetail(const char * str, ... )
+{
+
+    if (!str)
+        return;
+
+    if (m_customLevel >= LOG_LVL_DETAIL)
+    {
+        if (customLogfile)
+        {
+            va_list ap;
+            outTimestamp(customLogfile);
+            va_start(ap, str);
+            vfprintf(customLogfile, str, ap);
+            fprintf(customLogfile, "\n" );
+            va_end(ap);
+            fflush(customLogfile);
+        }
     }
 }
 //

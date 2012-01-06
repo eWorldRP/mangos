@@ -5661,7 +5661,7 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
 //
 
 // patch enturion playerbot
-    sLog.outCustom("PlayerbotAI::HandleCommand: bot GUID %u name %s received command \"%s\" from player GUID %u name %s. Is owner: %s",m_bot->GetGUIDLow(),m_bot->GetName(),
+    sLog.outCustomDetail("PlayerbotAI::HandleCommand: bot GUID %u name %s received command \"%s\" from player GUID %u name %s. Is owner: %s",m_bot->GetGUIDLow(),m_bot->GetName(),
                   text.c_str(),fromPlayer.GetGUIDLow(),fromPlayer.GetName(),canObeyCommandFrom(fromPlayer) ? "YES" : "NO");
 //
 

@@ -1149,6 +1149,11 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
         mgr->AddPlayerBot(guid);
         PSendSysMessage("Bot added successfully.");
         ++mgr->m_botCount;
+
+// patch enturion playerbot
+        sLog.outCustomBasic("ChatHandler::HandlePlayerbotCommand: player GUID %u name %s has added bot GUID %u",m_session->GetPlayer()->GetGUIDLow(), m_session->GetPlayer()->GetName(), 
+            guid.GetCounter());
+//
     }
     else if (cmdStr == "remove" || cmdStr == "logout")
     {
@@ -1162,6 +1167,11 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
         mgr->LogoutPlayerBot(guid);
         PSendSysMessage("Bot removed successfully.");
         --mgr->m_botCount;
+
+// patch enturion playerbot
+        sLog.outCustomBasic("ChatHandler::HandlePlayerbotCommand: player GUID %u name %s has removed bot GUID %u",m_session->GetPlayer()->GetGUIDLow(), m_session->GetPlayer()->GetName(), 
+            guid.GetCounter());
+//
     }
     else if (cmdStr == "co" || cmdStr == "combatorder")
     {
@@ -1205,6 +1215,11 @@ bool ChatHandler::HandlePlayerbotCommand(char* args)
             SetSentErrorMessage(true);
             return false;
         }
+
+// patch enturion playerbot
+        sLog.outCustomDetail("ChatHandler::HandlePlayerbotCommand: player GUID %u name %s has ordered bot GUID %u to \"%s\"",m_session->GetPlayer()->GetGUIDLow(), m_session->GetPlayer()->GetName(), 
+            guid.GetCounter(), orderChar);
+//
         mgr->GetPlayerBot(guid)->GetPlayerbotAI()->SetCombatOrderByStr(orderStr, target);
     }
     return true;
