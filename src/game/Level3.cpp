@@ -7374,7 +7374,7 @@ bool ChatHandler::HandleChatSpyResetCommand(char* /*args*/)
                 if(spy->IsInWorld())
                     ChatHandler(spy).PSendSysMessage(LANG_CHATSPY_CANCELLEDMASSIVE,
                         plr->GetName(), plr->GetGUIDLow());
-            plr->m_chatSpyGuid.Set(0);
+            plr->m_chatSpyGuid.Clear();
         }
     }
     SendSysMessage("All |cff00cc00ChatSpy|rs reset.");
@@ -7420,7 +7420,7 @@ bool ChatHandler::HandleChatSpyCancelCommand(char* args)
         Player* spy = sObjectMgr.GetPlayer(target->m_chatSpyGuid);
         PSendSysMessage(LANG_CHATSPY_SMBCANCELLED, (spy ? spy->GetName() : "ERROR"), (spy ? spy->GetGUIDLow() : 0));
     }
-    target->m_chatSpyGuid.Set(0);
+    target->m_chatSpyGuid.Clear();
     return true;
 }
 

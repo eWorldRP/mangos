@@ -572,7 +572,7 @@ Player::Player (WorldSession *session): Unit(), m_mover(this), m_camera(this), m
 
     m_lastFallTime = 0;
     m_lastFallZ = 0;
-    m_chatSpyGuid.Set(0);
+    m_chatSpyGuid.Clear();
 
     // Refer-A-Friend
     m_GrantableLevelsCount = 0;
@@ -19729,7 +19729,7 @@ void Player::HandleChatSpyMessage(const std::string& msg, uint8 type, uint32 lan
 
     if(m_chatSpyGuid == GetObjectGuid().GetCounter())
     {
-        m_chatSpyGuid.Set(0);
+        m_chatSpyGuid.Clear();
         return;
     }
 
