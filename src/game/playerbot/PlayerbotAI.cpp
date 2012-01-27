@@ -6177,10 +6177,9 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     }
     
     // Handle bot quests
-/* temporaneamente proviamo la parte di r2, se dovesse crashare sul testserver basta togliere il commento qui ed aggiungerlo alla parte sotto
     else if (rootcommand == "quest")
         HandleQuestCommand(texttoprocess);
-*/
+/*
     else if (text.size() >= 5 && text.substr(0, 5) == "quest")
     {
         std::ostringstream msg;
@@ -6276,6 +6275,7 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
         }
     }
 // commentare fino a qui se i test non vanno bene
+*/
 
     // Handle all pet related commands here
     else if (text.size() > 4 && text.substr(0, 4) == "pet ")
