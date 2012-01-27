@@ -1,4 +1,12 @@
 -- Strand of the Ancients
+
+-- creature and gameobject initial guid
+SET @CREATURE := 510000;
+SET @GAMEOBJECT := 510000;
+
+DELETE FROM `creature` WHERE `guid` BETWEEN @CREATURE AND @CREATURE+9999;
+DELETE FROM `gameobject` WHERE `guid` BETWEEN @GAMEOBJECT AND @GAMEOBJECT+9999;
+
 DELETE FROM battleground_template WHERE id = 9;
 INSERT INTO battleground_template (id, MinPlayersPerTeam, MaxPlayersPerTeam, AllianceStartLoc, AllianceStartO, HordeStartLoc, HordeStartO) VALUES (9, 5, 15, 1367, 0, 1368, 0);
 -- Rigger Sparklight
@@ -11,8 +19,8 @@ UPDATE creature_template SET npcflag = 1, ScriptName = 'npc_sa_vendor' WHERE ent
 UPDATE gameobject_template SET data2 = 1, data4 = 1, data7 = 10 WHERE entry = 190752;
 -- set factions for 2 Massive Seaforium Bombs
 -- use these if needed in Your DB (maybe already have better factions?)
--- UPDATE `gameobject_template` SET faction = 3 WHERE entry = 190753;
--- UPDATE `gameobject_template` SET faction = 6 WHERE entry = 194086;
+-- UPDATE gameobject_template SET faction = 3 WHERE entry = 190753;
+-- UPDATE gameobject_template SET faction = 6 WHERE entry = 194086;
 
 -- Achievements
 DELETE FROM achievement_criteria_requirement WHERE criteria_id IN (6447);
@@ -41,12 +49,13 @@ UPDATE gameobject_template SET flags = 0 WHERE entry IN (191309, 191310);
 
 -- Vehicles support
 -- Battleground Demolisher
-UPDATE creature_template SET npcflag = 1, minlevel = 70, maxlevel = 70, minhealth = 80000, maxhealth = 80000, spell1 = 52338, spell2 = 60206, mechanic_immune_mask = mechanic_immune_mask|1|2|8|16|32|64|128|1024|2048|4096|8192|131072|262144|8388608|16777216|67108864, ScriptName = 'npc_sa_demolisher', RegenHealth = 0 WHERE entry = 28781;
-UPDATE creature_template SET npcflag = 1, minlevel = 80, maxlevel = 80, minhealth = 80000, maxhealth = 80000, spell1 = 52338, spell2 = 60206, mechanic_immune_mask = mechanic_immune_mask|1|2|8|16|32|64|128|1024|2048|4096|8192|131072|262144|8388608|16777216|67108864, RegenHealth = 0, ScriptName = '' WHERE entry = 32796;
+-- UPDATE creature_template SET npcflag = 1, minlevel = 70, maxlevel = 70, minhealth = 80000, maxhealth = 80000, spell1 = 52338, spell2 = 60206, mechanic_immune_mask = mechanic_immune_mask|1|2|8|16|32|64|128|1024|2048|4096|8192|131072|262144|8388608|16777216|67108864, vehicle_id = 158, ScriptName = 'npc_sa_demolisher', RegenHealth = 0 WHERE entry = 28781;
+UPDATE creature_template SET npcflag = 0, minlevel = 70, maxlevel = 70, minhealth = 80000, maxhealth = 80000, spell1 = 52338, spell2 = 60206, mechanic_immune_mask = mechanic_immune_mask|1|2|8|16|32|64|128|1024|2048|4096|8192|131072|262144|8388608|16777216|67108864, vehicle_id = 158, ScriptName = '' WHERE entry = 28781;
+UPDATE creature_template SET npcflag = 0, minlevel = 80, maxlevel = 80, minhealth = 80000, maxhealth = 80000, spell1 = 52338, spell2 = 60206, mechanic_immune_mask = mechanic_immune_mask|1|2|8|16|32|64|128|1024|2048|4096|8192|131072|262144|8388608|16777216|67108864, vehicle_id = 158, ScriptName = '' WHERE entry = 32796;
 DELETE FROM npc_spellclick_spells WHERE npc_entry IN (28781, 32796);
 INSERT INTO npc_spellclick_spells VALUES
-(28781, 60968, 0, 0, 0, 0),
-(32796, 60968, 0, 0, 0, 0);
+(28781, 60968, 0, 0, 0, 1),
+(32796, 60968, 0, 0, 0, 1);
 -- Demolishers must not heal
 DELETE FROM creature_template_addon WHERE entry IN (28781, 32796);
 INSERT INTO creature_template_addon VALUES
@@ -62,8 +71,7 @@ INSERT INTO npc_spellclick_spells VALUES
 (32795, 60968, 0, 0, 0, 0);
 
 -- Rigger Sparklight
-SET @CREATURE := 200001;
-DELETE FROM creature WHERE guid BETWEEN @CREATURE AND @CREATURE+35;
+DELETE FROM creature WHERE map=607;
 INSERT INTO creature (guid,id,map,spawnMask,phaseMask,modelid,equipment_id,position_x,position_y,position_z,orientation,spawntimesecs,spawndist,currentwaypoint,curhealth,curmana,DeathState,MovementType)  VALUES
 (@CREATURE, 29260, 607, 3, 1, 0, 0, 1360.81, -322.18, 36.83, 0.32, 800, 0, 0, 6986, 0, 0, 0),
 (@CREATURE+1, 29262, 607, 3, 1, 0, 0, 1363.87, 220.95, 37.06, 2.67, 800, 0, 0, 6986, 0, 0, 0),
@@ -105,7 +113,7 @@ INSERT INTO creature (guid,id,map,spawnMask,phaseMask,modelid,equipment_id,posit
 (@CREATURE+34, 13116, 607, 3, 1, 0, 0, 1448.78, -52.9605, 5.74272, 0.0530517, 10, 0, 0, 37890, 6310, 0, 0),
 (@CREATURE+35, 13117, 607, 3, 1, 0, 0, 1448.78, -52.9605, 5.74272, 0.0530517, 10, 0, 0, 37420, 6310, 0, 0);
 
-DELETE FROM creature_battleground WHERE guid BETWEEN @CREATURE AND @CREATURE+35;
+DELETE FROM creature_battleground WHERE guid IN (SELECT guid FROM creature WHERE map=607);
 INSERT INTO creature_battleground VALUES
 -- Antipersonnel Cannon
 (@CREATURE, 9, 0),
@@ -147,8 +155,7 @@ INSERT INTO creature_battleground VALUES
 (@CREATURE+34, 4, 3),
 (@CREATURE+35, 4, 4);
 
-SET @GAMEOBJECT := 200008;
-DELETE FROM gameobject WHERE guid BETWEEN @GAMEOBJECT AND @GAMEOBJECT+177;
+DELETE FROM gameobject WHERE map=607;
 INSERT INTO gameobject VALUES
 -- Titan Relic & Doors
 (@GAMEOBJECT, 194082, 607, 3, 1, 836.502, -108.811, 111.587, 0.121379, 0, 0, 0.0606524, 0.998159, 86400, 0, 1),
@@ -340,17 +347,17 @@ INSERT INTO gameobject VALUES
 (@GAMEOBJECT+176, 194086 , 607 , 3 , 1 , 985.23 , 4.65898 , 86.8368 , 1.5779 , 0 , 0 , 0 , 0 , 10 , 0 , 0),
 (@GAMEOBJECT+177, 194086 , 607 , 3 , 1 , 984.556 , 3.54097 , 86.8137 , 1.5779 , 0 , 0 , 0 , 0 , 10 , 0 , 0);
 
-DELETE FROM gameobject_battleground WHERE guid BETWEEN @GAMEOBJECT AND @GAMEOBJECT+177;
+DELETE FROM gameobject_battleground WHERE guid IN (SELECT guid FROM gameobject WHERE map=607);
 INSERT INTO gameobject_battleground VALUES
 -- Titan Relic & Doors
 (@GAMEOBJECT, 14, 1),
-(@GAMEOBJECT+1, 11, 0),
+(@GAMEOBJECT+1, 14, 2),
 (@GAMEOBJECT+2, 11, 0),
 (@GAMEOBJECT+3, 11, 0),
 (@GAMEOBJECT+4, 11, 0),
 (@GAMEOBJECT+5, 11, 0),
 (@GAMEOBJECT+6, 11, 0),
-(@GAMEOBJECT+7, 14, 2),
+(@GAMEOBJECT+7, 11, 0),
 
 (@GAMEOBJECT+8, 0, 1),
 (@GAMEOBJECT+9, 0, 2),

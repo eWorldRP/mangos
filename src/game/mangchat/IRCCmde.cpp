@@ -104,7 +104,7 @@ void IRCCmd::Account_Player(_CDATA *CD)
         return;
     }
     normalizePlayerName(_PARAMS[0]);
-    uint64 guid = sObjectMgr.GetPlayerGuidByName(_PARAMS[0]);
+    ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(_PARAMS[0]));
     uint32 account_id = 0;
     account_id = sObjectMgr.GetPlayerAccountIdByGUID(guid);
     if (account_id)
@@ -179,7 +179,7 @@ void IRCCmd::Ban_Player(_CDATA *CD)
     }
     if (_PARAMS[1] == "acct")
     {
-        uint64 guid = sObjectMgr.GetPlayerGuidByName(_PARAMS[0].c_str());
+        ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(_PARAMS[0].c_str()));
         uint32 acctid = sObjectMgr.GetPlayerAccountIdByGUID(guid);
         if (_PARAMS[2] == "")
             _PARAMS[2] = "No Reason";
@@ -267,7 +267,7 @@ void IRCCmd::Char_Player(_CDATA *CD)
         return;
     }
     normalizePlayerName(_PARAMS[0]);
-    uint64 guid = sObjectMgr.GetPlayerGuidByName(_PARAMS[0]);
+    ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(_PARAMS[0]));
     Player* plr = sObjectMgr.GetPlayer(guid);
     if (plr)
     {
@@ -681,7 +681,7 @@ void IRCCmd::Jail_Player(_CDATA *CD)
                 float rposx, rposy, rposz, rposo = 0;
                 uint32 rmapid = 0;
                 CharacterDatabase.escape_string(_PARAMS[0]);
-                QueryResult *result = CharacterDatabase.PQuery( "SELECT `map`, `position_x`, `position_y`, `position_z` FROM `character_homebind` WHERE `guid` = '" UI64FMTD "'", plr->GetGUID() );
+                QueryResult *result = CharacterDatabase.PQuery( "SELECT `map`, `position_x`, `position_y`, `position_z` FROM `character_homebind` WHERE `guid` = '" UI64FMTD "'", plr->GetObjectGuid().GetCounter() );
                 if (result)
                 {
                     Field *fields = result->Fetch();
@@ -1374,7 +1374,7 @@ void IRCCmd::Level_Player(_CDATA *CD)
     }
     std::string player  = _PARAMS[0];
     normalizePlayerName(player);
-    uint64 guid = sObjectMgr.GetPlayerGuidByName(player.c_str());
+    ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(player.c_str()));
     std::string s_newlevel  = _PARAMS[1];
     uint8 i_newlvl = atoi(s_newlevel.c_str());
     if (!guid)
@@ -1435,7 +1435,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
     }
     std::string player  = _PARAMS[0];
     normalizePlayerName(player);
-    uint64 guid = sObjectMgr.GetPlayerGuidByName(player.c_str());
+    ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(player.c_str()));
     Player *chr = sObjectMgr.GetPlayer(guid);
 
     std::string s_money  = _PARAMS[1];
@@ -1517,7 +1517,7 @@ void IRCCmd::Mute_Player(_CDATA *CD)
         return;
     }
     normalizePlayerName(_PARAMS[0]);
-    uint64 guid = sObjectMgr.GetPlayerGuidByName(_PARAMS[0]);
+    ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(_PARAMS[0]));
     if (guid)
     {
         if (_PARAMS[1] == "release")
@@ -1792,7 +1792,7 @@ void IRCCmd::Tele_Player(_CDATA *CD)
         }
         else
         {
-            if (uint64 guid = sObjectMgr.GetPlayerGuidByName(_PARAMS[2].c_str()))
+            if (ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(_PARAMS[2].c_str())))
             {
                 bool in_flight;
                 Player::LoadPositionFromDB(guid,mapid, pX, pY, pZ, pO, in_flight);
@@ -1831,7 +1831,7 @@ void IRCCmd::Tele_Player(_CDATA *CD)
             }
             else
             {
-                uint64 guid = sObjectMgr.GetPlayerGuidByName(_PARAMS[0]);
+                ObjectGuid guid = ObjectGuid(sObjectMgr.GetPlayerGuidByName(_PARAMS[0]));
                 Player::SavePositionInDB(guid,mapid,pX,pY,pZ,pO,TerrainManager::Instance().GetZoneId(mapid,pX,pY,pZ));
                 sIRC.Send_IRC_Channel(ChanOrPM(CD), rMsg + " \0034*Offline Tele.* ", true, CD->TYPE);
             }

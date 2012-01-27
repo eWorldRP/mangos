@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -63,10 +63,12 @@ class GameObject;
 class Player;
 class Group;
 class Unit;
+class Group;
 class Map;
 class UpdateMask;
 class InstanceData;
 class TerrainInfo;
+class ZoneScript;
 
 typedef UNORDERED_MAP<Player*, UpdateData> UpdateDataMapType;
 
@@ -136,7 +138,6 @@ class MANGOS_DLL_SPEC Object
         bool IsInitialized() const { return (m_uint32Values ? true : false);}
 
         ObjectGuid const& GetObjectGuid() const { return GetGuidValue(OBJECT_FIELD_GUID); }
-        const uint64 GetGUID() const { return GetObjectGuid().GetRawValue(); }  // DEPRECATED, not use, will removed soon
         uint32 GetGUIDLow() const { return GetObjectGuid().GetCounter(); }
         PackedGuid const& GetPackGUID() const { return m_PackGUID; }
         std::string GetGuidStr() const { return GetObjectGuid().GetString(); }
@@ -359,6 +360,7 @@ class MANGOS_DLL_SPEC Object
 
         virtual bool HasQuest(uint32 /* quest_id */) const { return false; }
         virtual bool HasInvolvedQuest(uint32 /* quest_id */) const { return false; }
+
     protected:
 
         Object ( );
@@ -422,7 +424,8 @@ class MANGOS_DLL_SPEC WorldObject : public Object
 
                 void Update( uint32 time_diff )
                 {
-                    m_obj->Update( m_obj->m_updateTracker.timeElapsed(), time_diff);
+                    if (m_obj->IsInWorld())
+                        m_obj->Update( m_obj->m_updateTracker.timeElapsed(), time_diff);
                     m_obj->m_updateTracker.Reset();
                 }
 
@@ -585,6 +588,9 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         //obtain terrain data for map where this object belong...
         TerrainInfo const* GetTerrain() const;
 
+        void SetZoneScript();
+        ZoneScript * GetZoneScript() const { return m_zoneScript; }
+
         void AddToClientUpdateList();
         void RemoveFromClientUpdateList();
         void BuildUpdateData(UpdateDataMapType &);
@@ -618,6 +624,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
 
         // ASSERT print helper
         bool PrintCoordinatesError(float x, float y, float z, char const* descr) const;
+
     protected:
         explicit WorldObject();
 
@@ -632,6 +639,8 @@ class MANGOS_DLL_SPEC WorldObject : public Object
 
         ObjectGuid m_lootRecipientGuid;                     // player who will have rights for looting if m_lootGroupRecipient==0 or group disbanded
         uint32 m_lootGroupRecipientId;                      // group who will have rights for looting if set and exist
+
+        ZoneScript *m_zoneScript;
 
         std::string m_name;
 

@@ -284,12 +284,12 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
             {
                 case CHANNEL_JOIN:
                     Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
-                    WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
-                    WorldDatabase.PExecute(query.c_str(), plr->GetGUID());
+                    WorldDatabase.PExecute(lchan.c_str(), plr->GetObjectGuid().GetCounter());
+                    WorldDatabase.PExecute(query.c_str(), plr->GetObjectGuid().GetCounter());
                     break;
                 case CHANNEL_LEAVE:
                     Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(LEAVE_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
-                    WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
+                    WorldDatabase.PExecute(lchan.c_str(), plr->GetObjectGuid().GetCounter());
                     break;
             }
         }
@@ -342,7 +342,7 @@ void IRCClient::Send_WoW_Player(std::string sPlayer, std::string sMsg)
 void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
 {
     WorldPacket data(SMSG_MESSAGECHAT, 200);
-    ChatHandler::FillMessageData(&data, plr->GetSession(), CHAT_MSG_SYSTEM, LANG_UNIVERSAL, NULL, plr->GetGUID(), sMsg.c_str(), NULL);
+    ChatHandler::FillMessageData(&data, plr->GetSession(), CHAT_MSG_SYSTEM, LANG_UNIVERSAL, NULL, plr->GetObjectGuid().GetCounter(), sMsg.c_str(), NULL);
     plr->GetSession()->SendPacket(&data);
 }
 
@@ -429,7 +429,7 @@ void IRCClient::AutoJoinChannel(Player *plr)
     {
         if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
         {
-            data << uint64(itr->second->GetGUID());
+            data << uint64(itr->second->GetObjectGuid().GetCounter());
             break;
         }
     }

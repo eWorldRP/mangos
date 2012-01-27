@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -993,7 +993,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                         case 225:              // AV, own both mines (alliance)
                         {
 
-                            int8 team = bg->GetTeamIndexByTeamId(GetPlayer()->GetTeam());
+                            TeamIndex team = GetTeamIndex(GetPlayer()->GetTeam());
                             if(!((BattleGroundAV*)bg)->IsMineOwnedBy(BG_AV_NORTH_MINE,team) || !((BattleGroundAV*)bg)->IsMineOwnedBy(BG_AV_SOUTH_MINE,team))
                                 continue;
                             break;
@@ -1004,7 +1004,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                             if (bg->GetTypeID(true) != BATTLEGROUND_AV)
                                 continue;
 
-                            int8 team = bg->GetTeamIndexByTeamId(GetPlayer()->GetTeam());
+                            TeamIndex team = GetTeamIndex(GetPlayer()->GetTeam());
                             if(!((BattleGroundAV*)bg)->hasAllTowers(team))
                                 continue;
                             break;
@@ -1015,7 +1015,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                             if (bg->GetTypeID(true) != BATTLEGROUND_IC)
                                 continue;
 
-                            int8 team = bg->GetTeamIndexByTeamId(GetPlayer()->GetTeam());
+                            TeamIndex team = GetTeamIndex(GetPlayer()->GetTeam());
                             if(!((BattleGroundIC*)bg)->hasAllNodes(team))
                                 continue;
                             break;
@@ -1067,7 +1067,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                             if (bg->GetTypeID(true) != BATTLEGROUND_IC)
                                 continue;
 
-                            int8 team = bg->GetTeamIndexByTeamId(GetPlayer()->GetTeam());
+                            TeamIndex team = GetTeamIndex(GetPlayer()->GetTeam());
                             if(!((BattleGroundIC*)bg)->hasAllResNodes(team))
                                 continue;
                             break;
@@ -1753,6 +1753,8 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                             case HORDE:
                                 if (!(((BattleGroundWS*)bg)->GetFlagState(ALLIANCE) == BG_WS_FLAG_STATE_ON_BASE) || !unit->HasAura(23333) || GetPlayer()->GetAreaId() != 4571)
                                     continue;
+                                break;
+                            default:
                                 break;
                         }
                         break;

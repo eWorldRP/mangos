@@ -3227,7 +3227,7 @@ void PlayerbotAI::UpdateAI(const uint32 /*p_time*/)
             // DEBUG_LOG ("[PlayerbotAI]: UpdateAI - Teleport %s to corpse...", m_bot->GetName() );
             DoTeleport(*corpse);
             // check if we are allowed to resurrect now
-            if (corpse->GetGhostTime() + m_bot->GetCorpseReclaimDelay(corpse->GetType() == CORPSE_RESURRECTABLE_PVP) > time(0))
+            if (corpse->GetGhostTime() + m_bot->GetCorpseReclaimDelay(corpse->GetType() == CORPSE_RESURRECTABLE_PVP) > time(NULL))
             {
                 m_ignoreAIUpdatesUntilTime = corpse->GetGhostTime() + m_bot->GetCorpseReclaimDelay(corpse->GetType() == CORPSE_RESURRECTABLE_PVP);
                 // DEBUG_LOG ("[PlayerbotAI]: UpdateAI - %s has to wait for %d seconds to revive...", m_bot->GetName(), m_ignoreAIUpdatesUntilTime-time(0) );
@@ -3378,6 +3378,7 @@ bool PlayerbotAI::IsInRange(Unit* Target, uint32 spellId)
     if (!TempRange)
         return false;
 
+    // TODO: ugly line of code
     if (TempRange->minRange == TempRange->maxRange == 0.0f)
         return true;
 
@@ -3874,11 +3875,11 @@ void PlayerbotAI::extractQuestIds(const std::string& text, std::list<uint32>& qu
     uint8 pos = 0;
     while (true)
     {
-        int i = text.find("Hquest:", pos);
+        size_t i = text.find("Hquest:", pos);
         if (i == std::string::npos)
             break;
         pos = i + 7;
-        int endPos = text.find(':', pos);
+        size_t endPos = text.find(':', pos);
         if (endPos == std::string::npos)
             break;
         std::string idC = text.substr(pos, endPos - pos);
@@ -4692,7 +4693,6 @@ void PlayerbotAI::EquipItem(Item* src_Item)
 
         // check dest->src move possibility
         ItemPosCountVec sSrc;
-        uint16 eSrc = 0;
         if (m_bot->IsInventoryPos(src))
         {
             msg = m_bot->CanStoreItem(src_bagIndex, src_slot, sSrc, dest_Item, true);
@@ -5117,8 +5117,6 @@ void PlayerbotAI::ListQuests(WorldObject * questgiver)
 
         std::string questTitle  = pQuest->GetTitle();
         QuestLocalization(questTitle, questID);
-
-        QuestStatus status = m_bot->GetQuestStatus(questID);
 
         if (m_bot->SatisfyQuestStatus(pQuest, false))
             out << "|cff808080|Hquest:" << questID << ':' << pQuest->GetQuestLevel() << "|h[" << questTitle << "]|h|r";
@@ -6179,8 +6177,105 @@ void PlayerbotAI::HandleCommand(const std::string& text, Player& fromPlayer)
     }
     
     // Handle bot quests
+/* temporaneamente proviamo la parte di r2, se dovesse crashare sul testserver basta togliere il commento qui ed aggiungerlo alla parte sotto
     else if (rootcommand == "quest")
         HandleQuestCommand(texttoprocess);
+*/
+    else if (text.size() >= 5 && text.substr(0, 5) == "quest")
+    {
+        std::ostringstream msg;
+
+        std::string part = "";
+        std::string subcommand = "";
+
+        if (text.size() > 5 && text.substr(0, 6) == "quest ")
+            part = text.substr(6);  // Truncate 'quest ' part
+
+        if (part.find(" ") != std::string::npos)
+        {
+            subcommand = part.substr(0, part.find(" "));
+            if (part.size() > subcommand.size())
+                part = part.substr(subcommand.size() + 1);
+
+        }
+        else
+            subcommand = part;
+
+        if (subcommand == "a" || subcommand == "add")
+        {
+            std::list<uint32> questIds;
+            extractQuestIds(part, questIds);
+            for (std::list<uint32>::iterator it = questIds.begin(); it != questIds.end(); it++)
+                m_tasks.push_back(std::pair<enum TaskFlags, uint32>(TAKE, *it));
+            m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        }
+        else if (subcommand == "d" || subcommand == "drop")
+        {
+            fromPlayer.SetSelectionGuid(m_bot->GetObjectGuid());
+            PlayerbotChatHandler ch(GetMaster());
+            int8 linkStart = part.find("|");
+            if (part.find("|") != std::string::npos)
+            {
+                if (!ch.dropQuest((char *) part.substr(linkStart).c_str()))
+                    ch.sysmessage("ERROR: could not drop quest");
+                else
+                {
+                    SetQuestNeedItems();
+                    SetQuestNeedCreatures();
+                }
+            }
+        }
+        else if (subcommand == "l" || subcommand == "list")
+        {
+            m_tasks.push_back(std::pair<enum TaskFlags, uint32>(LIST, 0));
+            m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        }
+        else if (subcommand == "e" || subcommand == "end")
+        {
+            m_tasks.push_back(std::pair<enum TaskFlags, uint32>(END, 0));
+            m_findNPC.push_back(UNIT_NPC_FLAG_QUESTGIVER);
+        }
+        else
+        {
+            bool hasIncompleteQuests = false;
+            std::ostringstream incomout;
+            incomout << "my incomplete quests are:";
+            bool hasCompleteQuests = false;
+            std::ostringstream comout;
+            comout << "my complete quests are:";
+            for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
+            {
+                if (uint32 questId = m_bot->GetQuestSlotQuestId(slot))
+                {
+                    Quest const* pQuest = sObjectMgr.GetQuestTemplate(questId);
+
+                    std::string questTitle  = pQuest->GetTitle();
+                    m_bot->GetPlayerbotAI()->QuestLocalization(questTitle, questId);
+
+                    if (m_bot->GetQuestStatus(questId) == QUEST_STATUS_COMPLETE)
+                    {
+                        hasCompleteQuests = true;
+                        comout << " |cFFFFFF00|Hquest:" << questId << ':' << pQuest->GetQuestLevel() << "|h[" << questTitle << "]|h|r";
+                    }
+                    else
+                    {
+                        Item* qitem = FindItem(pQuest->GetSrcItemId());
+                        if (qitem)
+                            incomout << " use " << "|cffffffff|Hitem:" << qitem->GetProto()->ItemId << ":0:0:0:0:0:0:0" << "|h[" << qitem->GetProto()->Name1 << "]|h|r" << " on ";
+                        hasIncompleteQuests = true;
+                        incomout << " |cFFFFFF00|Hquest:" << questId << ':' << pQuest->GetQuestLevel() << "|h[" <<  questTitle << "]|h|r";
+                    }
+                }
+            }
+            if (hasCompleteQuests)
+                SendWhisper(comout.str(), fromPlayer);
+            if (hasIncompleteQuests)
+                SendWhisper(incomout.str(), fromPlayer);
+            if (!hasCompleteQuests && !hasIncompleteQuests)
+                SendWhisper("I have no quests!", fromPlayer);
+        }
+    }
+// commentare fino a qui se i test non vanno bene
 
     // Handle all pet related commands here
     else if (text.size() > 4 && text.substr(0, 4) == "pet ")

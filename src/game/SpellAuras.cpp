@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * Copyright (C) 2005-2012 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@
 #include "Creature.h"
 #include "Formulas.h"
 #include "BattleGround.h"
+#include "WorldPvP/WorldPvPMgr.h"
 #include "CreatureAI.h"
 #include "ScriptMgr.h"
 #include "Util.h"
@@ -1017,6 +1018,8 @@ void Aura::ApplyModifier(bool apply, bool Real)
     GetHolder()->SetInUse(false);
 }
 
+ClassFamilyMask const& Aura::GetAuraSpellClassMask() const { return  GetHolder() ? GetHolder()->GetSpellProto()->GetEffectSpellClassMask(m_effIndex) : ClassFamilyMask::Null; }
+
 bool Aura::isAffectedOnSpell(SpellEntry const *spell) const
 {
     return spell->IsFitToFamily(SpellFamily(GetSpellProto()->SpellFamilyName), GetAuraSpellClassMask());
@@ -1085,13 +1088,17 @@ void Aura::ReapplyAffectedPassiveAuras( Unit* target, bool owner_mode )
 
     {
         MAPLOCK_READ(target,MAP_LOCK_TYPE_AURAS);
-        for (Unit::SpellAuraHolderMap::const_iterator itr = target->GetSpellAuraHolderMap().begin(); itr != target->GetSpellAuraHolderMap().end(); ++itr)
+        Unit::SpellAuraHolderMap const& holderMap = target->GetSpellAuraHolderMap();
+        for (Unit::SpellAuraHolderMap::const_iterator itr = holderMap.begin(); itr != holderMap.end(); ++itr)
         {
+            if (!itr->second || itr->second->IsDeleted())
+                continue;
+
             // permanent passive or permanent area aura
             // passive spells can be affected only by own or owner spell mods)
             if ((itr->second->IsPermanent() && (owner_mode && itr->second->IsPassive() || itr->second->IsAreaAura())) &&
                 // non deleted and not same aura (any with same spell id)
-                !itr->second->IsDeleted() && itr->second->GetId() != GetId() &&
+                itr->second->GetId() != GetId() &&
                 // and affected by aura
                 isAffectedOnSpell(itr->second->GetSpellProto()))
             {
@@ -1880,7 +1887,18 @@ void Aura::TriggerSpell()
 //                    // Draw Magic
 //                    case 58185: break;
 //                    // Food
-//                    case 58886: break;
+                    case 58886:
+                    {
+                        if (!m_modifier.m_amount)
+                            return;
+
+                        uint32 randomBuff[5] = {57288, 57139, 57111, 57286, 57291};
+
+                        trigger_spell_id = urand(0,1) ? 58891 : randomBuff[urand(0,4)];
+                        m_modifier.m_amount = 0;
+
+                        break;
+                    }
 //                    // Shadow Sickle
 //                    case 59103: break;
 //                    // Time Bomb
@@ -1943,7 +1961,7 @@ void Aura::TriggerSpell()
 
                         if (triggerTarget->GetPower(POWER_MANA) < -damage)
                         {
-                            damage = -triggerTarget->GetPower(POWER_MANA);
+                            damage = -int32(triggerTarget->GetPower(POWER_MANA));
                             triggerTarget->RemoveAurasDueToSpell(auraId);
                         }
 
@@ -2639,11 +2657,23 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                             caster->CastSpell(caster, 68899, false);
                         }
                         return;
+                    case 69152:                             // Gaseous Blight (Festergut)
+                        target->RemoveAurasDueToSpell(69126); // previous gas state
+                        return;
+                    case 69154:                             // Gaseous Blight (Festergut)
+                        target->RemoveAurasDueToSpell(69152); // previous gas state
+                        return;
                     case 71342:                             // Big Love Rocket
                         Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 71344, 71345, 71346, 71347, 0);
                         return;
                     case 71563:                             // Deadly Precision
                         target->CastSpell(target, 71564, true, NULL, this);
+                        return;
+                    case 72087:                             // Kinetic Bomb Knockback
+                        float x, y, z;
+                        target->GetPosition(x, y, z);
+                        target->GetMotionMaster()->Clear();
+                        target->GetMotionMaster()->MovePoint(0, x, y, z + 6.0f * GetStackAmount());
                         return;
                     case 72286:                             // Invincible
                         Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 72281, 72282, 72283, 72284, 0);
@@ -3288,6 +3318,62 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 target->CastSpell(target, 68848, true, NULL, this);
                 // Draw Corrupted Soul
                 target->CastSpell(target, 68846, true, NULL, this);
+                return;
+            }
+            case 69766:                                     // Instability (Sindragosa)
+            {
+                // trigger Backlash if aura wears off
+                if (m_removeMode != AURA_REMOVE_BY_EXPIRE)
+                    return;
+
+                int32 damage = GetModifier()->m_amount;
+                target->CastCustomSpell(target, 69770, &damage, 0, 0, true, 0, this, GetCasterGuid(), GetSpellProto());
+                return;
+            }
+            case 70308:                                     // Mutated Transformation (Putricide)
+            {
+                uint32 entry = 37672;
+
+                if (target->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_NORMAL ||
+                    target->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_HEROIC)
+                {
+                    entry = 38285;
+                }
+
+                if (Creature *pAbomination = target->SummonCreature(entry, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), target->GetOrientation(), TEMPSUMMON_DEAD_DESPAWN, 0))
+                {
+                    target->CastSpell(pAbomination, 46598, true);
+                    pAbomination->CastSpell(pAbomination, 70405, true);
+                }
+
+                return;
+            }
+            case 70955:                                     // Unbound Plague Bounce Protection (Putricide)
+            {
+                target->CastSpell(target, 70917, true); // Search Periodic
+                return;
+            }
+            case 72087:                                     // Kinetic Bomb Knockback
+            {
+                float x, y, z;
+                target->GetPosition(x, y, z);
+                z = target->GetTerrain()->GetHeight(x, y, z, true, MAX_FALL_DISTANCE);
+                target->GetMotionMaster()->Clear();
+                target->GetMotionMaster()->MovePoint(0, x, y, z);
+                return;
+            }
+            case 72546:                             // Harvest Soul (Lich King)
+            case 73655:
+            {
+                switch (m_removeMode)
+                {
+                    case AURA_REMOVE_BY_EXPIRE:
+                        target->CastSpell(target, 72627, true); // instakill
+                        // no break
+                    case AURA_REMOVE_BY_DEATH:
+                        target->CastSpell(target, 72679, true); // Harvested Soul buff
+                        break;
+                }
                 return;
             }
         }
@@ -5443,10 +5529,9 @@ void Aura::HandleAuraModSilence(bool apply, bool Real)
     else
     {
         // Real remove called after current aura remove from lists, check if other similar auras active
-        if (target->HasAuraType(SPELL_AURA_MOD_SILENCE))
-            return;
-
-        target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED);
+        if (!target->HasAuraType(SPELL_AURA_MOD_SILENCE) &&
+            !target->HasAuraType(SPELL_AURA_MOD_PACIFY_SILENCE))
+            target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED);
     }
 }
 
@@ -5757,8 +5842,12 @@ void Aura::HandleAuraModEffectImmunity(bool apply, bool /*Real*/)
     {
         if ( BattleGround *bg = ((Player*)target)->GetBattleGround() )
             bg->EventPlayerDroppedFlag(((Player*)target));
-        else if (InstanceData* mapInstance = ((Player*)target)->GetInstanceData())
-            mapInstance->OnPlayerDroppedFlag((Player*)target, GetSpellProto()->Id);
+        else
+        {
+            sWorldPvPMgr.HandleDropFlag((Player*)target, GetSpellProto()->Id);
+            if (InstanceData* mapInstance = ((Player*)target)->GetInstanceData())
+                mapInstance->OnPlayerDroppedFlag((Player*)target, GetSpellProto()->Id);
+        }
     }
 
     target->ApplySpellImmune(GetId(), IMMUNITY_EFFECT, m_modifier.m_miscvalue, apply);
@@ -5866,6 +5955,26 @@ void Aura::HandleAuraProcTriggerSpell(bool apply, bool Real)
             }
             else
                 target->getHostileRefManager().ResetThreatRedirection();
+            break;
+        case 72059:                                         // Unstable (Kinetic Bomb - Blood Council encounter)
+            if (!apply)
+            {
+                if (target->GetTypeId() == TYPEID_UNIT)
+                    ((Creature*)target)->ForcedDespawn();
+            }
+            break;
+        case 72451:                                         // Mutated Plague (Putricide)
+        case 72463:
+        case 72671:
+        case 72672:
+            if (!apply)
+            {
+                if (Unit *pCaster = GetCaster())
+                {
+                    if (pCaster->isAlive())
+                        target->CastSpell(pCaster, GetModifier()->m_amount, true); // cast healing spell
+                }
+            }
             break;
         default:
             break;
@@ -5976,13 +6085,78 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                 }
 
                 return;
-            case 71441:                                     // Unstable Ooze Explosion (Icecrown Citadel encounter)
-                if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
-                    target->CastSpell(target, 67375, true, NULL, this);
-
+            case 70405:                                     // Mutated Transformation (Putricide)
+            case 72508:
+            case 72509:
+            case 72510:
+                if (target->GetTypeId() == TYPEID_UNIT)
+                    ((Creature*)target)->ForcedDespawn();
+                return;
+            case 71441:                                     // Unstable Ooze Explosion (Rotface)
+                target->CastSpell(target, 67375, true);
                 return;
             default:
                 break;
+        }
+    }
+
+    switch (GetId())
+    {
+        case 70157:                                     // Ice Tomb (Sindragosa)
+        {
+            if (apply)
+            {
+                if (GameObject *pGO = target->SummonGameobject(201722, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0.0f, 180))
+                {
+                    pGO->SetSpellId(GetId());
+                    target->AddGameObject(pGO);
+                }
+                if (Creature *pCreature = target->SummonCreature(36980, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN, 180000))
+                {
+                    pCreature->SetCreatorGuid(target->GetObjectGuid());
+                }
+            }
+            else
+            {
+                if (GameObject *pGo = target->GetGameObject(GetId()))
+                    pGo->Delete();
+            }
+
+            return;
+        }
+        case 71530:                                     // Essence of the Blood Queen (Queen Lana'thel)
+        case 71531:
+        case 71532:
+        case 71533:
+        case 71525:
+        case 71473:
+        case 70867:
+        case 70879:
+        case 71265:                                     // Swarming Shadows (Queen Lana'thel)
+        {
+            if (apply)
+            {
+                target->CastSpell(target, 70871, true, 0, this, target->GetObjectGuid()); // add the buff for healing
+
+                if (Unit *pCaster = GetCaster())
+                {
+                    // if we were bitten then we remove Frenzied Bloodthirst aura
+                    SpellAuraHolderPtr holder = pCaster->GetSpellAuraHolder(70877);
+                    if (!holder)
+                        holder = pCaster->GetSpellAuraHolder(71474);
+
+                    if (holder)
+                    {
+                        pCaster->RemoveAurasDueToSpell(70877);
+                        pCaster->CastSpell(pCaster, GetId(), true, 0, 0, holder->GetCasterGuid());
+                    }
+                }
+            }
+            else
+            {
+                target->RemoveAurasDueToSpell(70871); // remove the buff
+            }
+            break;
         }
     }
 }
@@ -6587,6 +6761,53 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
         // Void Shifted
         else if (spellProto->Id == 54361 || spellProto->Id == 59743)
             target->CastSpell(target, 54343, true, NULL, NULL, GetCasterGuid());
+    }
+
+    switch (GetId())
+    {
+        case 68980:                             // Harvest Soul(s) (Lich King)
+        case 74295:
+        case 74296:
+        case 74297:
+        case 74325:
+        case 74326:
+        case 74327:
+        case 73654:
+        {
+            if (!apply)
+            {
+                // if died - cast Harvested Soul on Lich King
+                if (m_removeMode == AURA_REMOVE_BY_DEATH)
+                    target->CastSpell(target, 72679, true);
+            }
+
+            break;
+        }
+        case 70911:                             // Unbound Plague (Putricide)
+        case 72854:
+        case 72855:
+        case 72856:
+        {
+            if (apply)
+            {
+                target->CastSpell(target, 70955, true); // Bounce Protection
+                if (Unit *pCaster = GetCaster())
+                {
+                    if (SpellAuraHolderPtr holder = pCaster->GetSpellAuraHolder(GetId()))
+                    {
+                        GetHolder()->SetAuraDuration(holder->GetAuraDuration());
+                        GetHolder()->SendAuraUpdate(false);
+                    }
+                }
+            }
+            else
+            {
+                target->RemoveAurasDueToSpell(70917); // remove Search Periodic
+                target->CastSpell(target, 70953, true); // Plague Sickness
+            }
+
+            break;
+        }
     }
 }
 
@@ -7807,9 +8028,6 @@ void Aura::HandleShapeshiftBoosts(bool apply)
         case FORM_SHADOW:
             spellId1 = 49868;
             spellId2 = 71167;
-
-            if (target->GetTypeId() == TYPEID_PLAYER)      // Spell 49868 have same category as main form spell and share cooldown
-                ((Player*)target)->RemoveSpellCooldown(49868);
             break;
         case FORM_GHOSTWOLF:
             spellId1 = 67116;
@@ -7826,9 +8044,17 @@ void Aura::HandleShapeshiftBoosts(bool apply)
     if (apply)
     {
         if (spellId1)
+        {
+            if(target->GetTypeId() == TYPEID_PLAYER)
+                ((Player*)target)->RemoveSpellCooldown(spellId1);
             target->CastSpell(target, spellId1, true, NULL, this );
+        }
         if (spellId2)
+        {
+            if(target->GetTypeId() == TYPEID_PLAYER)
+                ((Player*)target)->RemoveSpellCooldown(spellId2);
             target->CastSpell(target, spellId2, true, NULL, this);
+        }
 
         if (target->GetTypeId() == TYPEID_PLAYER)
         {
@@ -8012,12 +8238,21 @@ void Aura::HandleAuraUntrackable(bool apply, bool /*Real*/)
     }
 }
 
-void Aura::HandleAuraModPacify(bool apply, bool /*Real*/)
+void Aura::HandleAuraModPacify(bool apply, bool Real)
 {
+    // only at real add/remove aura
+    if(!Real)
+        return;
+
+    if (!GetTarget())
+        return;
+
     if (apply)
         GetTarget()->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
     else
-        GetTarget()->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
+        if (!GetTarget()->HasAuraType(SPELL_AURA_MOD_PACIFY) &&
+            !GetTarget()->HasAuraType(SPELL_AURA_MOD_PACIFY_SILENCE))
+            GetTarget()->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
 }
 
 void Aura::HandleAuraModPacifyAndSilence(bool apply, bool Real)
@@ -8362,7 +8597,7 @@ void Aura::PeriodicTick()
                 return;
 
             // Check for immune (not use charges)
-            if (target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
+            if (IsSpellCauseDamage(spellProto) && target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
                 return;
 
             // some auras remove at specific health level or more
@@ -8394,7 +8629,7 @@ void Aura::PeriodicTick()
                         }
                         break;
                     }
-                    case 70541:
+                    case 70541: // Infest (Lich King)
                     case 73779:
                     case 73780:
                     case 73781:
@@ -8404,6 +8639,29 @@ void Aura::PeriodicTick()
                             target->RemoveAurasDueToSpell(GetId());
                             return;
                         }
+                        else
+                        {
+                            // increasing damage (15% more each tick)
+                            // don't increase first tick damage
+                            if (GetModifier()->m_miscvalue > 0)
+                                GetModifier()->m_amount = GetModifier()->m_amount * 1.15f;
+                            else
+                                GetModifier()->m_miscvalue += 1;
+                        }
+                        break;
+                    }
+                    case 70672: // Gaseous Bloat (Putricide)
+                    case 72455:
+                    case 72832:
+                    case 72833:
+                    {
+                        // drop 1 stack
+                        if (GetHolder()->ModStackAmount(-1))
+                        {
+                            target->RemoveAurasDueToSpell(GetId());
+                            return;
+                        }
+
                         break;
                     }
                     case 74562: // SPELL_FIERY_COMBUSTION - Ruby sanctum boss Halion, added mark (74567, dummy) every tick
@@ -8431,6 +8689,21 @@ void Aura::PeriodicTick()
                     case 67296:
                     case 67298:
                         pCaster->CastSpell(target, 65952, true);
+                        break;
+                    // Unbound Plague (Putricide)
+                    case 70911:
+                    case 72854:
+                    case 72855:
+                    case 72856:
+                        m_modifier.m_miscvalue += 1; // store ticks number in miscvalue
+                        m_modifier.m_amount = m_modifier.m_baseamount * pow(2.7f, m_modifier.m_miscvalue * 0.223f);
+                        break;
+                    // Boiling Blood (Saurfang)
+                    case 72385:
+                    case 72441:
+                    case 72442:
+                    case 72443:
+                        target->CastSpell(target, 72202, true); // Blood Link
                         break;
                     default:
                         break;
@@ -8566,7 +8839,7 @@ void Aura::PeriodicTick()
                 return;
 
             // Check for immune
-            if (target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
+            if (IsSpellCauseDamage(spellProto) && target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
                 return;
 
             uint32 absorb=0;
@@ -8737,6 +9010,14 @@ void Aura::PeriodicTick()
                 }
             }
 
+            // Light's Favor (Lich King)
+            // recalculate bonus damage done after each tick
+            if (GetId() == 69382)
+            {
+                if (Aura *aur = GetHolder()->GetAuraByEffectIndex(EFFECT_INDEX_1))
+                    aur->GetModifier()->m_amount = int32(target->GetHealthPercent());
+            }
+
 //            uint32 procAttacker = PROC_FLAG_ON_DO_PERIODIC;//   | PROC_FLAG_SUCCESSFUL_HEAL;
 //            uint32 procVictim   = 0;//ROC_FLAG_ON_TAKE_PERIODIC | PROC_FLAG_TAKEN_HEAL;
             // ignore item heals
@@ -8775,7 +9056,7 @@ void Aura::PeriodicTick()
                 return;
 
             // Check for immune (not use charges)
-            if (target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
+            if (IsSpellCauseDamage(spellProto) && target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
                 return;
 
             // ignore non positive values (can be result apply spellmods to aura damage
@@ -8918,7 +9199,7 @@ void Aura::PeriodicTick()
                 return;
 
             // Check for immune (not use charges)
-            if (target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
+            if (IsSpellCauseDamage(spellProto) && target->IsImmunedToDamage(GetSpellSchoolMask(spellProto)))
                 return;
 
             int32 pdamage = m_modifier.m_amount > 0 ? m_modifier.m_amount : 0;
@@ -9498,6 +9779,51 @@ void Aura::PeriodicDummyTick()
 
                     // Should actually be SMSG_SPELL_START, too
                     target->CastSpell(target, 68873, true);
+                    return;
+                }
+                case 69397:                                   // Soul Rip (Lich King)
+                {
+                    Unit *caster = GetCaster();
+                    if (target && caster)
+                    {
+                        int32 bp0;
+                        if (!GetModifier()->m_amount)
+                            GetModifier()->m_amount = 1750;
+                        else
+                            GetModifier()->m_amount *= 2;
+
+                        bp0 = GetModifier()->m_amount;
+                        caster->CastCustomSpell(target, 69398, &bp0, 0, 0, true);
+                    }
+                    return;
+                }
+                case 70069:                                   // Ooze Flood Periodic Trigger (Rotface)
+                {
+                    if (target)
+                        target->CastSpell(target, spell->CalculateSimpleValue(GetEffIndex()), true);
+                    return;
+                }
+                case 70498:                                   // Vile Spirits (Lich King)
+                {
+                    if (target)
+                    {
+                        if (target->GetMap()->GetDifficulty() == RAID_DIFFICULTY_10MAN_NORMAL)
+                        {
+                            // on 10man normal max 8 spirits
+                            if (GetModifier()->m_miscvalue > 7)
+                                return;
+                        }
+
+                        target->CastSpell(target, 70497, true);
+                    }
+                    return;
+                }
+                case 73001:                                   // Shadow Prison (Blood Council)
+                {
+                    // cast dmg spell when moving
+                    if (target->GetTypeId() == TYPEID_PLAYER && ((Player*)target)->isMoving())
+                        target->CastSpell(target, 72999, true);
+
                     return;
                 }
 // Exist more after, need add later
@@ -10274,6 +10600,7 @@ m_permanent(false), m_isRemovedOnShapeLost(true), m_deleted(false), m_in_use(0)
         case 67108:                                         // Nether Power (ToC: Lord Jaraxxus)
         case 71564:                                         // Deadly Precision
         case 74396:                                         // Fingers of Frost
+        case 70672:                                         // Gaseous Bloat (Putricide)
             m_stackAmount = m_spellProto->StackAmount;
             break;
     }
@@ -10994,6 +11321,22 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     spellId1 = 65269;
                     break;
                 }
+                case 69409:                                 // Soul Reaper (Lich King)
+                case 73797:
+                case 73798:
+                case 73799:
+                {
+                    Unit *pCaster = GetCaster();
+                    if (!apply && pCaster)
+                        m_target->CastSpell(pCaster, 69410, true);
+
+                    break;
+                }
+                case 70157:                                 // Ice Tomb (Sindragosa)
+                {
+                    spellId1 = 69700;
+                    break;
+                }
                 case 70867:                                 // Soul of Blood Qween
                 case 71473:
                 case 71532:
@@ -11029,17 +11372,14 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     break;
                 }
                 case 69674:                                 // Mutated Infection
+                case 71224:
+                case 73022:
+                case 73023:
                 {
                     if (!apply)
                     {
-// patch mutated infection
-//                      if (m_removeMode == AURA_REMOVE_BY_DISPEL)
-                        if (m_removeMode == AURA_REMOVE_BY_DISPEL || m_removeMode == AURA_REMOVE_BY_EXPIRE)
-//
-                        {
-                            cast_at_remove = true;
-                            spellId1 = 69706;
-                        }
+                        cast_at_remove = true;
+                        spellId1 = (GetSpellProto() ? GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_2) : 0);
                     }
                     break;
                 }
@@ -11891,6 +12231,52 @@ void SpellAuraHolder::HandleSpellSpecificBoostsForward(bool apply)
     // Custom cases
     switch(GetSpellProto()->SpellFamilyName)
     {
+        case SPELLFAMILY_GENERIC:
+        {
+            switch(GetId())
+            {
+                case 70337:                                 // Necrotic Plague (Lich King)
+                case 73912:
+                case 73913:
+                case 73914:
+                {
+                    if (!apply)
+                    {
+                        GetTarget()->CastSpell(GetTarget(), 70338, true);
+                        if (m_removeMode != AURA_REMOVE_BY_DISPEL)
+                            GetTarget()->CastSpell(GetTarget(), 70338, true);
+                    }
+                    break;
+                }
+                case 70338:                                 // Necrotic Plague (stacking) (Lich King)
+                case 73785:
+                case 73786:
+                case 73787:
+                {
+                    if (apply)
+                    {
+                        GetTarget()->CastSpell(GetTarget(), 74074, true); // Plague Siphon
+
+                        if (Unit *caster = GetCaster())
+                        {
+                            if (SpellAuraHolderPtr holder = caster->GetSpellAuraHolder(GetId()))
+                                SetStackAmount(holder->GetStackAmount());
+                        }
+                    }
+                    else if (m_removeMode != AURA_REMOVE_BY_DEFAULT)
+                    {
+                        if (m_removeMode == AURA_REMOVE_BY_DISPEL && m_stackAmount > 1)
+                            --m_stackAmount;
+                        else
+                            ++m_stackAmount;
+
+                        GetTarget()->CastSpell(GetTarget(), 70338, true);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
         case SPELLFAMILY_WARLOCK:
         {
             // Shadow embrace (healing reduction part)
