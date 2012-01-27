@@ -2294,7 +2294,7 @@ class MANGOS_DLL_SPEC Player : public Unit
 
         // ChatSpy
         void HandleChatSpyMessage(const std::string& msg, uint8 type, uint32 lang, Player* sender = NULL, std::string special = "");
-        uint64 m_chatSpyGuid;
+        ObjectGuid m_chatSpyGuid;
 
         Object* GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask);
 

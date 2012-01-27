@@ -468,7 +468,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     case 59837:
                     case 52942:
                     {
-                        if(unitTarget->GetGUID() == m_caster->GetGUID() || unitTarget->GetTypeId() != TYPEID_PLAYER)
+                        if(unitTarget->GetObjectGuid().GetCounter() == m_caster->GetObjectGuid().GetCounter() || unitTarget->GetTypeId() != TYPEID_PLAYER)
                             return;
 
                         float radius = 40.0f;
@@ -3657,17 +3657,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     }
                     return;
                 }
-// patch spell eject all passengers
-                case 68576:                                 // Eject All Passengers
-                {
-                    if (!unitTarget)
-                        return;
-
-                    if (VehicleKit* vehicle = unitTarget->GetVehicleKit())
-                        vehicle->RemoveAllPassengers();
-                    return;
-                }
-//
                 case 67400:                                 // Zergling Attack (on Grunty companion)
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_UNIT || !((Creature*)unitTarget)->IsPet())

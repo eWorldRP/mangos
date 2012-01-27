@@ -1035,7 +1035,7 @@ void BattleGround::EndBattleGround(Team winner)
                 }
 // patch arena log
                 std::string IP_str = plr->GetSession()->GetRemoteAddress();
-                BattleGroundScoreMap::const_iterator plroster = m_PlayerScores.find(plr->GetObjectGuid().GetCounter());
+                BattleGroundScoreMap::const_iterator plroster = m_PlayerScores.find(plr->GetObjectGuid());
                 uint32 DD = 0, HD = 0;
                 if (plroster != m_PlayerScores.end())
                 {
@@ -1043,7 +1043,7 @@ void BattleGround::EndBattleGround(Team winner)
                     HD = plroster->second->HealingDone;
                 }
                 sLog.outArena("Il giocatore %s (IP: %s) vince. (personal rating: %u, danno fatto: %u, cure fatte: %u)",
-                    plr->GetName(), IP_str.c_str(), winner_arena_team->GetMember(plr->GetGUID())->personal_rating, DD, HD);
+                    plr->GetName(), IP_str.c_str(), winner_arena_team->GetMember(plr->GetObjectGuid())->personal_rating, DD, HD);
 //
             }
             else
@@ -1054,7 +1054,7 @@ void BattleGround::EndBattleGround(Team winner)
                 plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_WIN_RATED_ARENA, ACHIEVEMENT_CRITERIA_CONDITION_NO_LOOSE);
 // patch arena log
                 std::string IP_str = plr->GetSession()->GetRemoteAddress();
-                BattleGroundScoreMap::const_iterator plroster = m_PlayerScores.find(plr->GetGUID());
+                BattleGroundScoreMap::const_iterator plroster = m_PlayerScores.find(plr->GetObjectGuid());
                 uint32 DD = 0, HD = 0;
                 if (plroster != m_PlayerScores.end())
                 {
@@ -1062,7 +1062,7 @@ void BattleGround::EndBattleGround(Team winner)
                     HD = plroster->second->HealingDone;
                 }
                 sLog.outArena("Il giocatore %s (IP: %s) perde. (personal rating: %u, danno fatto: %u, cure fatte: %u)",
-                    plr->GetName(), IP_str.c_str(), loser_arena_team->GetMember(plr->GetGUID())->personal_rating, DD, HD);
+                    plr->GetName(), IP_str.c_str(), loser_arena_team->GetMember(plr->GetObjectGuid())->personal_rating, DD, HD);
 //
             }
         }

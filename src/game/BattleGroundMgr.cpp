@@ -1807,7 +1807,7 @@ void BattleGroundMgr::DistributeArenaPoints()
         if (Player* pl = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, plr_itr->first)))
             pl->ModifyArenaPoints(plr_itr->second);
 */
-        if (Player* pl = HashMapHolder<Player>::Find(plr_itr->first))
+        if (Player* pl = HashMapHolder<Player>::Find(ObjectGuid(HIGHGUID_PLAYER, plr_itr->first)))
             pl->ModifyArenaPoints(plr_itr->second);
         else    // Update database
             CharacterDatabase.PExecute("UPDATE characters SET arenaPoints=arenaPoints+%u WHERE guid=%u", plr_itr->second, plr_itr->first);

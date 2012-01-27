@@ -6398,9 +6398,9 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
                             {
                                 switch (spell->Id)
                                 {
-                                case 42992: ((Player*)caster)->KilledMonsterCredit(24263, 0); break;
-                                case 42993: ((Player*)caster)->KilledMonsterCredit(24264, 0); break;
-                                case 42994: ((Player*)caster)->KilledMonsterCredit(24265, 0); break;
+                                    case 42992: ((Player*)caster)->KilledMonsterCredit(24263); break;
+                                    case 42993: ((Player*)caster)->KilledMonsterCredit(24264); break;
+                                    case 42994: ((Player*)caster)->KilledMonsterCredit(24265); break;
                                 }
                             }
                         }
