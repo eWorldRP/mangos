@@ -225,7 +225,11 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         void AddToActive(WorldObject* obj);
         // must called with RemoveFromWorld
         void RemoveFromActive(WorldObject* obj);
-
+        
+// patch TEMPORANEA di compatibilità per alcuni script, da rimuovere prima possibile
+        Creature* Map::GetCreature(uint64 numericguid);
+        GameObject* Map::GetGameObject(uint64 numericguid);
+//
         Player* GetPlayer(ObjectGuid guid);
         Creature* GetCreature(ObjectGuid guid);
         Pet* GetPet(ObjectGuid guid);

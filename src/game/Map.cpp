@@ -3115,6 +3115,20 @@ Player* Map::GetPlayer(ObjectGuid guid)
     return plr && plr->GetMap() == this ? plr : NULL;
 }
 
+// patch TEMPORANEA di compatibilità per alcuni script, da rimuovere prima possibile
+Creature* Map::GetCreature(uint64 numericguid)
+{
+    ObjectGuid guid = ObjectGuid(numericguid);
+    return m_objectsStore.find<Creature>(guid, (Creature*)NULL);
+}
+
+GameObject* Map::GetGameObject(uint64 numericguid)
+{
+    ObjectGuid guid = ObjectGuid(numericguid);
+    return m_objectsStore.find<GameObject>(guid, (GameObject*)NULL);
+}
+//
+
 /**
  * Function return creature (non-pet and then most summoned by spell creatures) that in world at CURRENT map
  *
