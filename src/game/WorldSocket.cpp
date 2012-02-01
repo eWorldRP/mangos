@@ -904,18 +904,6 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
         return -1;
     }
 
-    // Check Role Realms Permissions
-    if ((sWorld.getConfig(CONFIG_UINT32_GAME_TYPE) == 6 || sWorld.getConfig(CONFIG_UINT32_GAME_TYPE) == 8) && fields[11].GetUInt8() == 0)
-    {
-        WorldPacket Packet(SMSG_AUTH_RESPONSE, 1);
-        Packet << uint8(AUTH_FAILED);
-
-        SendPacket(packet);
-
-        BASIC_LOG("WorldSocket::HandleAuthSession: User tries to login but has not role realms access");
-        return -1;
-    }
-
     // Check that Key and account name are the same on client and server
     Sha1Hash sha;
 
