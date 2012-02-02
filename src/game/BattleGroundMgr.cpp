@@ -2130,6 +2130,7 @@ HolidayIds BattleGroundMgr::BGTypeToWeekendHolidayId(BattleGroundTypeId bgTypeId
         case BATTLEGROUND_WS: return HOLIDAY_CALL_TO_ARMS_WS;
         case BATTLEGROUND_SA: return HOLIDAY_CALL_TO_ARMS_SA;
         case BATTLEGROUND_AB: return HOLIDAY_CALL_TO_ARMS_AB;
+        case BATTLEGROUND_IC: return HOLIDAY_CALL_TO_ARMS_ISLE_OF_C;
         default: return HOLIDAY_NONE;
     }
 }
