@@ -91,11 +91,6 @@ enum MangosStrings
     LANG_USING_SCRIPT_LIB_UNKNOWN       = 65,
     LANG_USING_SCRIPT_LIB_NONE          = 66,
     // Room for more level 0              67-99 not used
-// patch nameannounce
-	LANG_SYSTEMMESSAGE_MODERATOR        = 67,
-    LANG_SYSTEMMESSAGE_GAMEMASTER       = 68,
-    LANG_SYSTEMMESSAGE_ADMINISTRATOR    = 69,
-//
 
     // level 1 chat
     LANG_GLOBAL_NOTIFY                  = 100,
@@ -1050,6 +1045,9 @@ enum MangosStrings
     // Use for custom patches             11000-11999
     LANG_COMMAND_FRIEND                 = 11133,
     LANG_COMMAND_FRIEND_ERROR           = 11134,
+    LANG_SYSTEMMESSAGE_MODERATOR        = 12000,
+    LANG_SYSTEMMESSAGE_GAMEMASTER       = 12001,
+    LANG_SYSTEMMESSAGE_ADMINISTRATOR    = 12000,
     LANG_BAN_ACCOUNT_ANNOUNCE           = 17890,
     LANG_PERMBAN_ACCOUNT_ANNOUNCE       = 17891,
     LANG_BAN_CHARACTER_ANNOUNCE         = 17892,

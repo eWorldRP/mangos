@@ -562,6 +562,7 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandleGroupgoCommand(char* args);
         bool HandleRecallCommand(char* args);
         bool HandleAnnounceCommand(char* args);
+        bool HandleNameAnnounceCommand(char* args);
         bool HandleNotifyCommand(char* args);
         bool HandleGPSCommand(char* args);
         bool HandleTaxiCheatCommand(char* args);
@@ -618,9 +619,6 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandlePlayerbotCommand(char* args);
         bool HandleQuitCommand(char* args);
         bool HandleIRCpmCommand(char* args);
-// patch nameannounce
-        bool HandleNameAnnounceCommand(char* args);
-//
         bool HandleShowGearScoreCommand(char* args);
 
         bool HandleMmapPathCommand(char* args);
